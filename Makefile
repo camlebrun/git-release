@@ -4,7 +4,7 @@ install:
 	pip install -r requirements-dev.txt
 
 dev:
-	functions-framework --target=main --source=src --port=8080
+	PYTHONPATH=. functions-framework --target=main --source=src/main.py --port=8080
 
 test:
 	pytest

@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 venv/
 dist/
+node_modules/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/

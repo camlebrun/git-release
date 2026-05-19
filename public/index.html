@@ -5,12 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="api-url" content="https://REPLACE_WITH_CLOUD_FUNCTION_URL" />
   <title>Git Release Digest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <header>
-    <h1>Git Release Digest</h1>
-    <p class="subtitle">Daily digest of releases — analysed by AI, enriched with CVE data</p>
+    <div class="header-top">
+      <div>
+        <h1>⚡ Git Release Digest</h1>
+        <p class="subtitle">Daily release intelligence — AI summaries · CVE tracking · NVD enrichment</p>
+      </div>
+    </div>
+
     <div class="tabs">
       <button class="tab active" data-tab="digest">
         Digest <span class="badge" id="digest-count"></span>
@@ -19,8 +25,9 @@
         Dependency CVEs <span class="badge badge-cve" id="cve-count"></span>
       </button>
     </div>
+
     <div class="toolbar">
-      <input type="search" id="search" placeholder="Filter by repo, tag, or keyword…" autocomplete="off" />
+      <input type="search" id="search" placeholder="Filter by repo, tag, severity…" autocomplete="off" />
     </div>
   </header>
 
@@ -28,25 +35,27 @@
     <!-- Digest tab -->
     <section id="tab-digest" class="tab-panel active">
       <div id="grid" class="grid"></div>
-      <p id="empty-digest" class="empty-state hidden">No releases found.</p>
+      <p id="empty-digest" class="empty-state hidden">No releases match your filter.</p>
       <p id="loading" class="loading">Loading releases…</p>
     </section>
 
     <!-- CVE tab -->
     <section id="tab-cves" class="tab-panel hidden">
-      <table id="cve-table">
-        <thead>
-          <tr>
-            <th>CVE ID</th>
-            <th>CVSS</th>
-            <th>Severity</th>
-            <th>Repo</th>
-            <th>Version</th>
-            <th>Description</th>
-          </tr>
-        </thead>
-        <tbody id="cve-tbody"></tbody>
-      </table>
+      <div class="table-wrap">
+        <table id="cve-table">
+          <thead>
+            <tr>
+              <th>CVE ID</th>
+              <th>CVSS</th>
+              <th>Severity</th>
+              <th>Repo</th>
+              <th>Version</th>
+              <th class="desc-cell">Description</th>
+            </tr>
+          </thead>
+          <tbody id="cve-tbody"></tbody>
+        </table>
+      </div>
       <p id="empty-cves" class="empty-state hidden">No CVEs detected yet.</p>
     </section>
   </main>
