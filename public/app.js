@@ -99,7 +99,6 @@ async function loadDigest() {
     allRecords = await resp.json();
     loading.classList.add('hidden');
     renderGrid(allRecords);
-    renderCveTable(allRecords);
     updateCounts(allRecords);
     buildRepoFilters(allRecords);
   } catch (err) {
@@ -110,10 +109,6 @@ async function loadDigest() {
 
 function updateCounts(records) {
   document.getElementById('digest-count').textContent = records.length || '';
-  const cveIds = new Set(
-    records.flatMap(r => (r.analysis?.cve_references ?? []).filter(id => CVE_RE.test(id)))
-  );
-  document.getElementById('cve-count').textContent = cveIds.size || '';
 }
 
 // ── Grid ───────────────────────────────────────────────────────────────────
