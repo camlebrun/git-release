@@ -20,6 +20,9 @@
       <button class="tab active" data-tab="digest">
         Digest <span class="badge" id="digest-count"></span>
       </button>
+      <button class="tab" data-tab="security">
+        Security Advisories <span class="badge badge-cve" id="advisory-count"></span>
+      </button>
     </div>
 
     <div class="toolbar">
@@ -76,6 +79,20 @@
     </section>
 
   </main>
+
+  </main>
+
+  <!-- Security tab — full page -->
+  <section id="tab-security" class="tab-panel hidden">
+    <div class="advisory-page">
+      <div class="advisory-page-header">
+        <h2>🔒 Security Advisories</h2>
+        <p>Published security advisories from the GitHub Security Advisory Database for tracked repositories.</p>
+      </div>
+      <div id="advisory-list" class="advisory-grid"></div>
+      <p id="empty-advisories" class="empty-state hidden">No security advisories found.</p>
+    </div>
+  </section>
 
   <script type="module" src="app.js"></script>
 </body>
