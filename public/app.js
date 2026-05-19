@@ -1,7 +1,9 @@
 /* git-release digest — frontend app */
 'use strict';
 
-const DIGEST_URL = '/digest.json';
+// Fetched at runtime from R2 public URL (CORS configured in Cloudflare dashboard)
+// R2 → git-release-releases → Settings → CORS Policy → AllowedOrigins: ["*"]
+const DIGEST_URL = 'https://pub-d7a866e02d744f3fb57bc3859858a5df.r2.dev/digest.json';
 
 let allRecords = [];
 let activeSev = 'all';

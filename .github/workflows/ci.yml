@@ -1,8 +1,6 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -10,47 +8,27 @@ jobs:
   python:
     name: Python tests & lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-
-      - name: Lint (ruff)
-        run: ruff check src tests
-
-      - name: Format check (black)
-        run: black --check src tests
-
-      - name: Type check (mypy)
-        run: mypy --strict src
-
-      - name: Tests (pytest)
-        run: pytest --tb=short -q
+      - run: pip install -r requirements-dev.txt
+      - run: ruff check src tests
+      - run: black --check src tests
+      - run: mypy --strict src
+      - run: pytest --tb=short -q
 
   frontend:
     name: Frontend build
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Create empty digest for CI build
-        run: echo "[]" > public/digest.json
-
-      - name: Build
-        run: npx vite build
+      - run: npm ci
+      - run: echo "[]" > public/digest.json
+      - run: npx vite build
