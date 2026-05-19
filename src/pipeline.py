@@ -78,8 +78,10 @@ def run_pipeline(
         try:
             cursor = get_cursor(s3, bucket, owner, name)
             if cursor is None:
-                releases = backfill_releases(owner, name, github_token, min_version, stable_only)
-                logger.info("[%s] backfill (min=%s, stable=%s): %d releases", repo, min_version, stable_only, len(releases))
+                releases = backfill_releases(
+                    owner, name, github_token, min_version, bool(stable_only)
+                )
+                logger.info("[%s] backfill %d releases (min=%s)", repo, len(releases), min_version)
             else:
                 releases = get_new_releases(owner, name, cursor, github_token)
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
@@ -95,7 +97,9 @@ def run_pipeline(
                 if llm_delay_s > 0 and new_count > 0:
                     time.sleep(llm_delay_s)
                 try:
-                    analysis, error = analyse_release({**release, "repo": repo}, llm_key, llm_provider)
+                    analysis, error = analyse_release(
+                        {**release, "repo": repo}, llm_key, llm_provider
+                    )
                 except AuthError as e:
                     logger.error("❌ Auth error — stopping pipeline: %s", e)
                     raise  # propagate up, stop everything

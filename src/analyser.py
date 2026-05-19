@@ -50,12 +50,12 @@ def _call_gemini(prompt: str, api_key: str, retries: int = 5) -> str:
             timeout=30,
         )
         if resp.status_code == 429:
-            wait = 4 * (2 ** attempt)  # 4s, 8s, 16s, 32s, 64s
+            wait = 4 * (2**attempt)  # 4s, 8s, 16s, 32s, 64s
             logger.warning("Gemini 429 — wait %ss (attempt %s/%s)", wait, attempt + 1, retries)
             time.sleep(wait)
             continue
         resp.raise_for_status()
-        return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+        return str(resp.json()["candidates"][0]["content"]["parts"][0]["text"])
     raise RuntimeError(f"Gemini 429 after {retries} retries")
 
 
@@ -63,7 +63,9 @@ class AuthError(Exception):
     """Raised on 401 — invalid API key, must stop the pipeline."""
 
 
-def _call_openai_compat(prompt: str, api_key: str, base_url: str, model: str, timeout: float) -> str:
+def _call_openai_compat(
+    prompt: str, api_key: str, base_url: str, model: str, timeout: float
+) -> str:
     from openai import AuthenticationError
 
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
