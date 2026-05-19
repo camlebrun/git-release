@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from src.analyser import AuthError, analyse_release
-from src.cve_enricher import enrich_cve_list
+from src.digest import get_digest
 from src.fetcher import backfill_releases, get_new_releases
 from src.store import (
     get_cursor,
@@ -16,6 +16,7 @@ from src.store import (
     release_exists,
     set_cursor,
     set_run_status,
+    write_digest_json,
 )
 
 logger = logging.getLogger(__name__)
@@ -104,10 +105,7 @@ def run_pipeline(
                     logger.error("❌ Auth error — stopping pipeline: %s", e)
                     raise  # propagate up, stop everything
 
-                cve_ids: list[str] = (analysis or {}).get("cve_references", [])  # type: ignore[assignment]
-                cve_details = enrich_cve_list(cve_ids) if cve_ids else []
-
-                record = _build_record(release, repo, analysis, error, cve_details)
+                record = _build_record(release, repo, analysis, error, [])
                 put_release(s3, bucket, record)
                 new_count += 1
                 latest_published_at = str(release.get("published_at", ""))
@@ -126,5 +124,12 @@ def run_pipeline(
         "repos": repo_status,
     }
     set_run_status(s3, bucket, run_status)
+
+    # Rebuild master digest.json in R2 for direct public fetch
+    logger.info("Rebuilding digest.json in R2...")
+    all_records = get_digest(s3, bucket, limit=500)
+    write_digest_json(s3, bucket, all_records)
+    logger.info("digest.json written (%d records)", len(all_records))
+
     logger.info("Pipeline complete: %s", repo_status)
     return run_status

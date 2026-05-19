@@ -100,3 +100,16 @@ def get_run_status(s3: Any, bucket: str) -> dict[str, Any] | None:
 
 def set_run_status(s3: Any, bucket: str, status: dict[str, Any]) -> None:
     _put_json(s3, bucket, _RUN_STATUS_KEY, status)
+
+
+def write_digest_json(s3: Any, bucket: str, records: list[dict[str, Any]]) -> None:
+    """Write pre-aggregated digest.json to R2 root for direct public fetch."""
+    slim = [{k: v for k, v in r.items() if k != "body"} for r in records]
+    slim.sort(key=lambda r: str(r.get("published_at", "")), reverse=True)
+    s3.put_object(
+        Bucket=bucket,
+        Key="digest.json",
+        Body=json.dumps(slim, ensure_ascii=False).encode(),
+        ContentType="application/json",
+        CacheControl="public, max-age=3600",
+    )
