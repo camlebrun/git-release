@@ -14,6 +14,9 @@ GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 GEMINI_MODEL = "gemini-flash-latest"
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
+OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
+
 GITHUB_API_BASE = "https://api.github.com"
 GROQ_TIMEOUT_S = 10
 GITHUB_TIMEOUT_S = 10
