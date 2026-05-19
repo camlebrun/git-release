@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="api-url" content="https://REPLACE_WITH_CLOUD_FUNCTION_URL" />
+  <title>Git Release Digest</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Git Release Digest</h1>
+    <p class="subtitle">Daily digest of releases — analysed by AI, enriched with CVE data</p>
+    <div class="tabs">
+      <button class="tab active" data-tab="digest">
+        Digest <span class="badge" id="digest-count"></span>
+      </button>
+      <button class="tab" data-tab="cves">
+        Dependency CVEs <span class="badge badge-cve" id="cve-count"></span>
+      </button>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="search" placeholder="Filter by repo, tag, or keyword…" autocomplete="off" />
+    </div>
+  </header>
+
+  <main>
+    <!-- Digest tab -->
+    <section id="tab-digest" class="tab-panel active">
+      <div id="grid" class="grid"></div>
+      <p id="empty-digest" class="empty-state hidden">No releases found.</p>
+      <p id="loading" class="loading">Loading releases…</p>
+    </section>
+
+    <!-- CVE tab -->
+    <section id="tab-cves" class="tab-panel hidden">
+      <table id="cve-table">
+        <thead>
+          <tr>
+            <th>CVE ID</th>
+            <th>CVSS</th>
+            <th>Severity</th>
+            <th>Repo</th>
+            <th>Version</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody id="cve-tbody"></tbody>
+      </table>
+      <p id="empty-cves" class="empty-state hidden">No CVEs detected yet.</p>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
