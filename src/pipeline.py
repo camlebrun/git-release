@@ -61,8 +61,9 @@ def _build_record(
 def run_pipeline(
     s3: Any,
     bucket: str,
-    groq_key: str,
+    llm_key: str,
     github_token: str | None = None,
+    llm_provider: str = "groq",
 ) -> dict[str, Any]:
     repos = load_repos()
     repo_status: dict[str, Any] = {}
@@ -89,7 +90,7 @@ def run_pipeline(
                 if release_exists(s3, bucket, owner, name, tag):
                     continue
 
-                analysis, error = analyse_release({**release, "repo": repo}, groq_key)
+                analysis, error = analyse_release({**release, "repo": repo}, llm_key, llm_provider)
 
                 cve_ids: list[str] = (analysis or {}).get("cve_references", [])  # type: ignore[assignment]
                 cve_details = enrich_cve_list(cve_ids) if cve_ids else []

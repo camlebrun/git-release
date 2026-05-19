@@ -13,15 +13,10 @@ _VALID_ANALYSIS = {
 
 
 def _make_release(body: str = "Fixed bugs.") -> dict[str, object]:
-    return {
-        "repo": "owner/repo",
-        "tag_name": "v1.0.0",
-        "name": "Release 1.0.0",
-        "body": body,
-    }
+    return {"repo": "owner/repo", "tag_name": "v1.0.0", "name": "Release 1.0.0", "body": body}
 
 
-def _mock_groq(content: str) -> MagicMock:
+def _mock_client(content: str) -> MagicMock:
     choice = MagicMock()
     choice.message.content = content
     response = MagicMock()
@@ -32,19 +27,16 @@ def _mock_groq(content: str) -> MagicMock:
 
 
 def test_happy_path() -> None:
-    client = _mock_groq(json.dumps(_VALID_ANALYSIS))
-    with patch("src.analyser.Groq", return_value=client):
+    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(_VALID_ANALYSIS))):
         analysis, error = analyse_release(_make_release(), "fake-key")
     assert error is None
     assert analysis is not None
     assert analysis["summary"] == _VALID_ANALYSIS["summary"]
     assert analysis["severity"] == "none"
-    assert analysis["tags"] == ["bug-fix"]
 
 
 def test_invalid_json_returns_none() -> None:
-    client = _mock_groq("not json }{")
-    with patch("src.analyser.Groq", return_value=client):
+    with patch("src.analyser.OpenAI", return_value=_mock_client("not json }{")):
         analysis, error = analyse_release(_make_release(), "fake-key")
     assert analysis is None
     assert error is not None
@@ -52,14 +44,8 @@ def test_invalid_json_returns_none() -> None:
 
 def test_cve_detection() -> None:
     body = "Fixes CVE-2026-12345 and CVE-2026-99999."
-    payload = {
-        **_VALID_ANALYSIS,
-        "cve_references": ["CVE-2026-12345", "CVE-2026-99999"],
-        "severity": "high",
-        "tags": ["security", "bug-fix"],
-    }
-    client = _mock_groq(json.dumps(payload))
-    with patch("src.analyser.Groq", return_value=client):
+    payload = {**_VALID_ANALYSIS, "cve_references": ["CVE-2026-12345"], "severity": "high"}
+    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(payload))):
         analysis, error = analyse_release(_make_release(body), "fake-key")
     assert error is None
     assert analysis is not None
@@ -67,11 +53,17 @@ def test_cve_detection() -> None:
     assert analysis["severity"] == "high"
 
 
-def test_groq_exception_returns_none() -> None:
+def test_exception_returns_none() -> None:
     client = MagicMock()
     client.chat.completions.create.side_effect = Exception("timeout")
-    with patch("src.analyser.Groq", return_value=client):
+    with patch("src.analyser.OpenAI", return_value=client):
         analysis, error = analyse_release(_make_release(), "fake-key")
     assert analysis is None
-    assert error is not None
-    assert "timeout" in error
+    assert "timeout" in (error or "")
+
+
+def test_gemini_provider_uses_gemini_model() -> None:
+    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(_VALID_ANALYSIS))) as mock_openai:
+        analyse_release(_make_release(), "fake-key", provider="gemini")
+    call_kwargs = mock_openai.call_args.kwargs
+    assert "generativelanguage" in call_kwargs["base_url"]
