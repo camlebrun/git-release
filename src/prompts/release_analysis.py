@@ -37,13 +37,14 @@ What files to update, what commands to run, what to test. \
 Empty string if no migration needed.>",
 
   "cve_references": [
-    "<ONLY CVE IDs that appear verbatim in the release body, exact format CVE-YYYY-NNNNN \
-where YYYY is a 4-digit year and NNNNN is at least 4 digits. \
-DO NOT infer, guess, or fabricate CVE IDs. If none are explicitly written, return [].>"
+    "<Security advisory IDs explicitly written in the release body. Accept two formats: \
+CVE-YYYY-NNNNN (CVE IDs) and GHSA-XXXX-XXXX-XXXX (GitHub Security Advisories). \
+DO NOT infer, guess, or fabricate IDs. If none are written verbatim, return [].>"
   ],
 
   "severity": "<Security/stability impact: none | low | medium | high | critical. \
-Base on: CVEs present, breaking changes, data-loss risk, auth changes. \
+Base on: CVEs/GHSAs present, breaking changes, data-loss risk, auth changes. \
+'critical' = RCE, SQL injection, auth bypass, data loss — upgrade immediately. \
 'none' = pure feature/perf. 'low' = minor behaviour change. 'medium' = breaking change requiring migration. \
 'high' = security fix or data integrity risk. 'critical' = RCE, auth bypass, data loss.>",
 
