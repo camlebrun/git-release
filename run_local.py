@@ -26,18 +26,13 @@ s3 = get_s3_client(
 
 github_token = get_secret(GCP_PROJECT, "GITHUB_TOKEN")
 
-# Use Gemini if GEMINI_API_KEY is set, otherwise fall back to Groq
-try:
-    llm_key = get_secret(GCP_PROJECT, "GEMINI_API_KEY")
-    llm_provider = "gemini"
-    print("🤖 Provider: Google Gemini 2.0 Flash\n")
-except Exception:
-    llm_key = get_secret(GCP_PROJECT, "GROQ_API_KEY")
-    llm_provider = "groq"
-    print("🤖 Provider: Groq llama-3.3-70b\n")
+llm_key = get_secret(GCP_PROJECT, "GEMINI_API_KEY")
+llm_provider = "gemini"
+llm_delay_s = 1.0  # paid tier — higher RPM allowed
+print("🤖 Provider: Gemini 2.0 Flash Lite (~€0.01 pour 116 releases)\n")
 
 print("🚀 Starting pipeline...\n")
-result = run_pipeline(s3, R2_BUCKET, llm_key, github_token, llm_provider)
+result = run_pipeline(s3, R2_BUCKET, llm_key, github_token, llm_provider, llm_delay_s)
 
 print("\n✅ Done:")
 for repo, status in result["repos"].items():

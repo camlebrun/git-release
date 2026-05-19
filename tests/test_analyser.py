@@ -62,8 +62,13 @@ def test_exception_returns_none() -> None:
     assert "timeout" in (error or "")
 
 
-def test_gemini_provider_uses_gemini_model() -> None:
-    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(_VALID_ANALYSIS))) as mock_openai:
+def test_gemini_provider_calls_native_api() -> None:
+    with patch("src.analyser.requests.post") as mock_post:
+        mock_resp = MagicMock()
+        mock_resp.json.return_value = {
+            "candidates": [{"content": {"parts": [{"text": json.dumps(_VALID_ANALYSIS)}]}}]
+        }
+        mock_post.return_value = mock_resp
         analyse_release(_make_release(), "fake-key", provider="gemini")
-    call_kwargs = mock_openai.call_args.kwargs
-    assert "generativelanguage" in call_kwargs["base_url"]
+    called_url = mock_post.call_args.args[0]
+    assert "generativelanguage" in called_url

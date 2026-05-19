@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 
+import requests
 from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
@@ -22,16 +23,42 @@ logger = logging.getLogger(__name__)
 class AnalysisResult(BaseModel):
     summary: str
     key_changes: list[str]
-    cve_references: list[str]
+    breaking_changes: list[str] = []
+    migration_notes: str = ""
+    cve_references: list[str] = []
     severity: str
     tags: list[str]
 
 
-def _build_client(provider: str, api_key: str) -> tuple[OpenAI, str]:
-    if provider == "gemini":
-        return OpenAI(api_key=api_key, base_url=GEMINI_BASE_URL, timeout=30.0), GEMINI_MODEL
-    # default: groq
-    return OpenAI(api_key=api_key, base_url=GROQ_BASE_URL, timeout=float(GROQ_TIMEOUT_S)), GROQ_MODEL
+def _call_gemini(prompt: str, api_key: str) -> str:
+    url = f"{GEMINI_BASE_URL}/{GEMINI_MODEL}:generateContent"
+    resp = requests.post(
+        url,
+        headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
+        json={
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",
+                "maxOutputTokens": LLM_MAX_TOKENS,
+                "temperature": 0,
+            },
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+
+
+def _call_groq(prompt: str, api_key: str) -> str:
+    client = OpenAI(api_key=api_key, base_url=GROQ_BASE_URL, timeout=float(GROQ_TIMEOUT_S))
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"},
+        temperature=0,
+        max_tokens=LLM_MAX_TOKENS,
+    )
+    return response.choices[0].message.content or ""
 
 
 def analyse_release(
@@ -47,15 +74,11 @@ def analyse_release(
     prompt = RELEASE_ANALYSIS_PROMPT.format(repo=repo, tag=tag, name=name, body=body)
 
     try:
-        client, model = _build_client(provider, api_key)
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0,
-            max_tokens=LLM_MAX_TOKENS,
-        )
-        raw = response.choices[0].message.content or ""
+        if provider == "gemini":
+            raw = _call_gemini(prompt, api_key)
+        else:
+            raw = _call_groq(prompt, api_key)
+
         data = json.loads(raw)
         result = AnalysisResult(**data)
         return result.model_dump(), None
