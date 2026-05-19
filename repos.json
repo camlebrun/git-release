@@ -1,5 +1,8 @@
 [
   "cli/cli",
   "vitejs/vite",
-  "astral-sh/uv"
+  "astral-sh/uv",
+  "dbt-labs/dbt-core",
+  "starburstdata/dbt-trino",
+  "dagster-io/dagster"
 ]

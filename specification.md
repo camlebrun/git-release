@@ -80,8 +80,19 @@ Developers following multiple open-source projects lose track of releases. Readi
 - Each item in the array is the full stored record (raw + analysis).
 - Results are sorted by `published_at` descending.
 
-### FR-08 — Frontend bento page
+### FR-08b — Dependency CVE tab
+- The website has a second tab **"Dependency CVEs"** alongside the main digest.
+- For each tracked repo and release, the LLM analysis already extracts `cve_references` from the release body.
+- The CVE tab aggregates all CVE IDs across **all analysed releases** and displays them in a searchable table with columns: CVE ID, repo, version, severity, summary excerpt.
+- Rows are sorted by severity (`critical` → `high` → `medium` → `low` → `none`), then by `published_at` desc.
+- Each CVE ID is a link to `https://nvd.nist.gov/vuln/detail/<CVE-ID>` (NVD) opening in a new tab.
+- The tab shows a badge with the total count of unique CVE IDs found.
+- Client-side filter input allows filtering by CVE ID, repo name, or severity.
+- If no CVEs are found across all releases, the tab displays "No CVEs detected yet."
+
+### FR-09 — Frontend bento page
 - A static HTML/JS/CSS page fetches `/digest` on load and renders cards in a CSS Grid bento layout.
+- Two tabs at the top: **"Digest"** (default) and **"Dependency CVEs"** (see FR-08b).
 - Each card shows: repo name, version tag, published date, severity badge, summary, key changes list, CVE references (if any), tags.
 - Severity badge colour coding: `none`=grey, `low`=blue, `medium`=yellow, `high`=orange, `critical`=red.
 - The page has a search/filter input that filters visible cards client-side by repo name or tag.
