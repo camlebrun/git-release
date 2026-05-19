@@ -145,19 +145,20 @@ function renderAdvisories(advisories) {
     const cve  = a.cve_id  ? `<span class="advisory-cve">${esc(a.cve_id)}</span>` : '';
     const action = an.action ? `<span class="advisory-action">${esc(ACTION_LABEL[an.action] ?? an.action)}</span>` : '';
     const steps = (an.action_steps ?? []).map(s => `<li>${esc(s)}</li>`).join('');
-    return `<div class="advisory-card sev-border-${sev}">
+    const link = a.html_url ?? a.url ?? '#';
+    return `<a class="advisory-card sev-border-${sev}" href="${esc(link)}" target="_blank" rel="noopener">
   <div class="advisory-header">
     <div class="advisory-ids">${ghsa}${cve}</div>
     <span class="sev sev-${sev}">${sev}</span>
   </div>
   <p class="advisory-repo">${esc(a.repo)}</p>
   <p class="advisory-summary">${esc(a.summary)}</p>
-  ${an.impact ? `<p class="advisory-desc">${esc(an.impact)}</p>` : ''}
+  ${an.impact ? `<p class="advisory-desc">${esc(an.impact)}</p>` : `<p class="advisory-desc">${esc((a.description ?? '').slice(0, 300))}</p>`}
   ${an.affected_versions ? `<p class="advisory-meta">Affected: <strong>${esc(an.affected_versions)}</strong>${an.fix_version ? ` → Fixed in: <strong>${esc(an.fix_version)}</strong>` : ''}</p>` : ''}
   ${action}
   ${steps ? `<ul class="advisory-steps">${steps}</ul>` : ''}
   <p class="advisory-date">${formatDate(a.published_at)}</p>
-</div>`;
+</a>`;
   }).join('');
 }
 
