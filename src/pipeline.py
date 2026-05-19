@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from src.analyser import analyse_release
+from src.analyser import AuthError, analyse_release
 from src.cve_enricher import enrich_cve_list
 from src.fetcher import backfill_releases, get_new_releases
 from src.store import (
@@ -64,6 +65,7 @@ def run_pipeline(
     llm_key: str,
     github_token: str | None = None,
     llm_provider: str = "groq",
+    llm_delay_s: float = 0.0,
 ) -> dict[str, Any]:
     repos = load_repos()
     repo_status: dict[str, Any] = {}
@@ -90,7 +92,13 @@ def run_pipeline(
                 if release_exists(s3, bucket, owner, name, tag):
                     continue
 
-                analysis, error = analyse_release({**release, "repo": repo}, llm_key, llm_provider)
+                if llm_delay_s > 0 and new_count > 0:
+                    time.sleep(llm_delay_s)
+                try:
+                    analysis, error = analyse_release({**release, "repo": repo}, llm_key, llm_provider)
+                except AuthError as e:
+                    logger.error("❌ Auth error — stopping pipeline: %s", e)
+                    raise  # propagate up, stop everything
 
                 cve_ids: list[str] = (analysis or {}).get("cve_references", [])  # type: ignore[assignment]
                 cve_details = enrich_cve_list(cve_ids) if cve_ids else []

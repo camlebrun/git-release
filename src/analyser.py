@@ -59,15 +59,24 @@ def _call_gemini(prompt: str, api_key: str, retries: int = 5) -> str:
     raise RuntimeError(f"Gemini 429 after {retries} retries")
 
 
+class AuthError(Exception):
+    """Raised on 401 — invalid API key, must stop the pipeline."""
+
+
 def _call_openai_compat(prompt: str, api_key: str, base_url: str, model: str, timeout: float) -> str:
+    from openai import AuthenticationError
+
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
-    response = client.chat.completions.create(
-        model=model,
-        messages=[{"role": "user", "content": prompt}],
-        response_format={"type": "json_object"},
-        temperature=0,
-        max_tokens=LLM_MAX_TOKENS,
-    )
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
+            temperature=0,
+            max_tokens=LLM_MAX_TOKENS,
+        )
+    except AuthenticationError as e:
+        raise AuthError(f"Invalid API key — update your key and restart: {e}") from e
     return response.choices[0].message.content or ""
 
 

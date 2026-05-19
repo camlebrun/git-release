@@ -4,11 +4,12 @@ from pathlib import Path
 
 
 def load_env(path: str = ".env.local") -> None:
+    """Always overwrite — so updating .env.local is picked up on restart."""
     for line in Path(path).read_text().splitlines():
         line = line.strip()
         if line and not line.startswith("#") and "=" in line:
             k, v = line.split("=", 1)
-            os.environ.setdefault(k.strip(), v.strip())
+            os.environ[k.strip()] = v.strip()
 
 
 load_env()
