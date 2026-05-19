@@ -1,6 +1,13 @@
 """Run the pipeline locally — loads .env.local for secrets."""
+import logging
 import os
 from pathlib import Path
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s  %(message)s",
+    datefmt="%H:%M:%S",
+)
 
 
 def load_env(path: str = ".env.local") -> None:

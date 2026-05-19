@@ -37,8 +37,9 @@ What files to update, what commands to run, what to test. \
 Empty string if no migration needed.>",
 
   "cve_references": [
-    "<CVE IDs explicitly mentioned in the release body, format CVE-YYYY-NNNNN. \
-Empty array if none — do not infer CVEs that are not explicitly stated.>"
+    "<ONLY CVE IDs that appear verbatim in the release body, exact format CVE-YYYY-NNNNN \
+where YYYY is a 4-digit year and NNNNN is at least 4 digits. \
+DO NOT infer, guess, or fabricate CVE IDs. If none are explicitly written, return [].>"
   ],
 
   "severity": "<Security/stability impact: none | low | medium | high | critical. \

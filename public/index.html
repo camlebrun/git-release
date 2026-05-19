@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="api-url" content="https://REPLACE_WITH_CLOUD_FUNCTION_URL" />
   <title>Git Release Digest</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -21,43 +19,61 @@
       <button class="tab active" data-tab="digest">
         Digest <span class="badge" id="digest-count"></span>
       </button>
-      <button class="tab" data-tab="cves">
-        Dependency CVEs <span class="badge badge-cve" id="cve-count"></span>
-      </button>
     </div>
 
     <div class="toolbar">
-      <input type="search" id="search" placeholder="Filter by repo, tag, severity…" autocomplete="off" />
+      <input type="search" id="search" placeholder="Search repo, tag, keyword…" autocomplete="off" />
+
+      <!-- Severity filters -->
+      <div class="filter-group">
+        <span class="filter-label">Severity</span>
+        <div class="sev-filters">
+          <button class="sev-btn active" data-sev="all">All</button>
+          <button class="sev-btn" data-sev="critical" title="RCE, auth bypass, data loss — upgrade immediately">
+            <span class="sev sev-critical">critical</span>
+          </button>
+          <button class="sev-btn" data-sev="high" title="Security fix or data integrity risk — plan upgrade this sprint">
+            <span class="sev sev-high">high</span>
+          </button>
+          <button class="sev-btn" data-sev="medium" title="Breaking change requiring migration — schedule before next release">
+            <span class="sev sev-medium">medium</span>
+          </button>
+          <button class="sev-btn" data-sev="low" title="Minor behaviour change, low risk — review at next cycle">
+            <span class="sev sev-low">low</span>
+          </button>
+          <button class="sev-btn" data-sev="none" title="Pure feature or performance — no action required">
+            <span class="sev sev-none">none</span>
+          </button>
+        </div>
+
+        <!-- Legend -->
+        <div class="sev-legend">
+          <span class="legend-title">What do these mean?</span>
+          <div class="legend-items">
+            <span><span class="sev sev-critical">critical</span> RCE · auth bypass · data loss</span>
+            <span><span class="sev sev-high">high</span> Security fix · data integrity risk</span>
+            <span><span class="sev sev-medium">medium</span> Breaking change · migration needed</span>
+            <span><span class="sev sev-low">low</span> Minor behaviour change</span>
+            <span><span class="sev sev-none">none</span> Feature · perf · no action needed</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Repo filters (populated by JS) -->
+      <div class="filter-group">
+        <span class="filter-label">Repo</span>
+        <div class="repo-filters" id="repo-filters"></div>
+      </div>
     </div>
   </header>
 
   <main>
-    <!-- Digest tab -->
     <section id="tab-digest" class="tab-panel active">
       <div id="grid" class="grid"></div>
       <p id="empty-digest" class="empty-state hidden">No releases match your filter.</p>
       <p id="loading" class="loading">Loading releases…</p>
     </section>
 
-    <!-- CVE tab -->
-    <section id="tab-cves" class="tab-panel hidden">
-      <div class="table-wrap">
-        <table id="cve-table">
-          <thead>
-            <tr>
-              <th>CVE ID</th>
-              <th>CVSS</th>
-              <th>Severity</th>
-              <th>Repo</th>
-              <th>Version</th>
-              <th class="desc-cell">Description</th>
-            </tr>
-          </thead>
-          <tbody id="cve-tbody"></tbody>
-        </table>
-      </div>
-      <p id="empty-cves" class="empty-state hidden">No CVEs detected yet.</p>
-    </section>
   </main>
 
   <script type="module" src="app.js"></script>
