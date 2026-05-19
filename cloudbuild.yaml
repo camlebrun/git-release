@@ -1,0 +1,36 @@
+steps:
+  # Run Python tests before deploying
+  - name: python:3.12-slim
+    id: test
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install -r requirements-dev.txt -q
+        ruff check src tests
+        black --check src tests
+        pytest --tb=short -q
+
+  # Deploy Cloud Function (gen2) via gcloud
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    waitFor: [test]
+    entrypoint: gcloud
+    args:
+      - functions
+      - deploy
+      - git-release
+      - --gen2
+      - --runtime=python312
+      - --region=us-central1
+      - --source=.
+      - --entry-point=main
+      - --trigger-http
+      - --allow-unauthenticated
+      - --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com
+      - --memory=512MB
+      - --timeout=300s
+      - --project=git-release-496817
+
+options:
+  logging: CLOUD_LOGGING_ONLY
