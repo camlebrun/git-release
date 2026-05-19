@@ -87,7 +87,12 @@ def get_new_releases(
     return result
 
 
-def backfill_releases(owner: str, repo: str, token: str | None = None) -> list[dict[str, object]]:
+def backfill_releases(
+    owner: str,
+    repo: str,
+    token: str | None = None,
+    min_version: str | None = None,
+) -> list[dict[str, object]]:
     all_releases = _all_pages(owner, repo, token)
     if not all_releases:
         return []
@@ -96,11 +101,21 @@ def backfill_releases(owner: str, repo: str, token: str | None = None) -> list[d
     valid = [(r, sv) for r, sv in semver_releases if sv.valid]
 
     if not valid:
-        # Non-semver fallback: most recent N by published_at
         sorted_all = sorted(all_releases, key=lambda r: str(r["published_at"]))
         return sorted_all[-BACKFILL_NON_SEMVER:]
 
-    max_major = max(sv.major for _, sv in valid)
-    kept = [r for r, sv in valid if sv.major >= max_major - 1]
+    if min_version:
+        min_sv = parse_semver(min_version)
+        if min_sv.valid:
+            valid = [
+                (r, sv)
+                for r, sv in valid
+                if (sv.major, sv.minor, sv.patch) >= (min_sv.major, min_sv.minor, min_sv.patch)
+            ]
+    else:
+        max_major = max(sv.major for _, sv in valid)
+        valid = [(r, sv) for r, sv in valid if sv.major >= max_major - 1]
+
+    kept = [r for r, _ in valid]
     kept.sort(key=lambda r: str(r["published_at"]))
     return kept

@@ -1,5 +1,5 @@
 [
-  "dbt-labs/dbt-core",
-  "starburstdata/dbt-trino",
-  "dagster-io/dagster"
+  {"repo": "dbt-labs/dbt-core",       "min_version": "1.0.0"},
+  {"repo": "starburstdata/dbt-trino",  "min_version": "1.0.0"},
+  {"repo": "dagster-io/dagster",       "min_version": "1.11.0"}
 ]

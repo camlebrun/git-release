@@ -22,8 +22,15 @@ logger = logging.getLogger(__name__)
 _REPOS_PATH = Path(__file__).parent.parent / "repos.json"
 
 
-def load_repos() -> list[str]:
-    return json.loads(_REPOS_PATH.read_text())  # type: ignore[no-any-return]
+def load_repos() -> list[dict[str, str]]:
+    raw = json.loads(_REPOS_PATH.read_text())
+    result = []
+    for item in raw:
+        if isinstance(item, str):
+            result.append({"repo": item})
+        else:
+            result.append(item)
+    return result
 
 
 def _build_record(
@@ -60,13 +67,15 @@ def run_pipeline(
     repos = load_repos()
     repo_status: dict[str, Any] = {}
 
-    for repo in repos:
+    for repo_cfg in repos:
+        repo = repo_cfg["repo"]
+        min_version = repo_cfg.get("min_version")
         owner, name = repo.split("/", 1)
         try:
             cursor = get_cursor(s3, bucket, owner, name)
             if cursor is None:
-                releases = backfill_releases(owner, name, github_token)
-                logger.info("[%s] backfill: %d releases", repo, len(releases))
+                releases = backfill_releases(owner, name, github_token, min_version)
+                logger.info("[%s] backfill (min=%s): %d releases", repo, min_version, len(releases))
             else:
                 releases = get_new_releases(owner, name, cursor, github_token)
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)

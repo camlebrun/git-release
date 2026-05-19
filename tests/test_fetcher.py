@@ -106,3 +106,24 @@ def test_backfill_returns_ascending_order() -> None:
         result = backfill_releases("owner", "repo")
     assert result[0]["tag_name"] == "v1.0.0"
     assert result[1]["tag_name"] == "v2.0.0"
+
+
+def test_backfill_min_version_filters_below() -> None:
+    releases = [
+        _release("v1.5.0", "2026-05-01T00:00:00Z"),
+        _release("v1.0.0", "2026-03-01T00:00:00Z"),
+        _release("v0.9.0", "2026-01-01T00:00:00Z"),
+    ]
+    with patch("src.fetcher.requests.get", side_effect=[_make_resp(releases), _make_resp([])]):
+        result = backfill_releases("owner", "repo", min_version="1.0.0")
+    tags = {r["tag_name"] for r in result}
+    assert "v1.5.0" in tags
+    assert "v1.0.0" in tags
+    assert "v0.9.0" not in tags
+
+
+def test_backfill_min_version_exact_match_included() -> None:
+    releases = [_release("v1.0.0", "2026-01-01T00:00:00Z")]
+    with patch("src.fetcher.requests.get", side_effect=[_make_resp(releases), _make_resp([])]):
+        result = backfill_releases("owner", "repo", min_version="1.0.0")
+    assert len(result) == 1
