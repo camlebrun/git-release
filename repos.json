@@ -1,0 +1,5 @@
+[
+  "cli/cli",
+  "vitejs/vite",
+  "astral-sh/uv"
+]

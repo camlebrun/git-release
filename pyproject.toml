@@ -1,0 +1,17 @@
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
