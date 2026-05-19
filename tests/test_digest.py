@@ -7,7 +7,12 @@ BUCKET = "test-bucket"
 
 
 def _blob(tag: str, published_at: str, with_body: bool = True) -> bytes:
-    record: dict = {"repo": "owner/repo", "tag": tag, "published_at": published_at, "analysis": None}
+    record: dict = {
+        "repo": "owner/repo",
+        "tag": tag,
+        "published_at": published_at,
+        "analysis": None,
+    }  # noqa: E501
     if with_body:
         record["body"] = "raw markdown — should be stripped"
     return json.dumps(record).encode()
@@ -40,7 +45,10 @@ def test_sorted_descending() -> None:
 
 
 def test_respects_limit() -> None:
-    blobs = {f"releases/owner/repo/v{i}.json": _blob(f"v{i}", f"2026-0{i}-01T00:00:00Z") for i in range(1, 6)}
+    blobs = {
+        f"releases/owner/repo/v{i}.json": _blob(f"v{i}", f"2026-0{i}-01T00:00:00Z")
+        for i in range(1, 6)
+    }
     result = get_digest(_mock_s3(blobs), BUCKET, limit=3)
     assert len(result) == 3
 

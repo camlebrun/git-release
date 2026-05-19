@@ -1,4 +1,5 @@
 import pytest
+
 from src.semver import parse_semver
 
 

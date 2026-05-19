@@ -21,7 +21,13 @@ def enrich_cve(cve_id: str) -> dict[str, object]:
     result = _fetch_nvd(cve_id)
     if result:
         return result
-    return _fetch_osv(cve_id) or {"id": cve_id, "description": None, "cvss_score": None, "cvss_severity": None, "references": []}
+    return _fetch_osv(cve_id) or {
+        "id": cve_id,
+        "description": None,
+        "cvss_score": None,
+        "cvss_severity": None,
+        "references": [],
+    }
 
 
 def enrich_cve_list(cve_ids: list[str]) -> list[dict[str, object]]:

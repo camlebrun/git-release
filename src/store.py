@@ -89,7 +89,9 @@ def get_cursor(s3: Any, bucket: str, owner: str, repo: str) -> str | None:
 
 def set_cursor(s3: Any, bucket: str, owner: str, repo: str, published_at: str) -> None:
     now = datetime.now(timezone.utc).isoformat()
-    _put_json(s3, bucket, _cursor_key(owner, repo), {"published_at": published_at, "updated_at": now})
+    _put_json(
+        s3, bucket, _cursor_key(owner, repo), {"published_at": published_at, "updated_at": now}
+    )  # noqa: E501
 
 
 def get_run_status(s3: Any, bucket: str) -> dict[str, Any] | None:

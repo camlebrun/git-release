@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 
 import requests
 
@@ -31,12 +31,14 @@ def _headers(token: str | None) -> dict[str, str]:
     return h
 
 
-def _get_page(url: str, token: str | None, params: dict[str, object]) -> list[dict[str, object]]:
+def _get_page(url: str, token: str | None, params: dict[str, int | str]) -> list[dict[str, object]]:
     for attempt in range(GITHUB_RETRY_MAX):
         resp = requests.get(url, headers=_headers(token), params=params, timeout=GITHUB_TIMEOUT_S)
         if resp.status_code == 429 or resp.status_code >= 500:
-            wait = 2 ** attempt
-            logger.warning("GitHub %s, retrying in %ss (attempt %s)", resp.status_code, wait, attempt + 1)
+            wait = 2**attempt
+            logger.warning(
+                "GitHub %s, retrying in %ss (attempt %s)", resp.status_code, wait, attempt + 1
+            )  # noqa: E501
             time.sleep(wait)
             continue
         if not resp.ok:

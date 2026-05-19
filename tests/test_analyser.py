@@ -1,8 +1,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from src.analyser import analyse_release
 
 _VALID_ANALYSIS = {

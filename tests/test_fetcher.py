@@ -1,7 +1,6 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
 
 from src.fetcher import GitHubFetchError, backfill_releases, get_new_releases
 
@@ -17,12 +16,7 @@ def _mock_get(*pages: list[dict]) -> MagicMock:
         resp.ok = True
         resp.status_code = 200
         resp.json.return_value = page
-    responses = [
-        *(
-            _make_resp(page)
-            for page in pages
-        )
-    ]
+    responses = [*(_make_resp(page) for page in pages)]
     mock = MagicMock()
     mock.side_effect = responses
     return mock
@@ -37,6 +31,7 @@ def _make_resp(data: list[dict]) -> MagicMock:
 
 
 # --- get_new_releases ---
+
 
 def test_get_new_releases_filters_by_since() -> None:
     releases = [
@@ -75,6 +70,7 @@ def test_get_new_releases_raises_on_error() -> None:
 
 
 # --- backfill_releases ---
+
 
 def test_backfill_keeps_last_two_majors() -> None:
     releases = [

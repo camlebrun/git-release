@@ -9,7 +9,13 @@ from typing import Any
 from src.analyser import analyse_release
 from src.cve_enricher import enrich_cve_list
 from src.fetcher import backfill_releases, get_new_releases
-from src.store import get_cursor, put_release, release_exists, set_cursor, set_run_status
+from src.store import (
+    get_cursor,
+    put_release,
+    release_exists,
+    set_cursor,
+    set_run_status,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +69,7 @@ def run_pipeline(
                 logger.info("[%s] backfill: %d releases", repo, len(releases))
             else:
                 releases = get_new_releases(owner, name, cursor, github_token)
-                logger.info("[%s] incremental: %d new releases since %s", repo, len(releases), cursor)
+                logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 
             new_count = 0
             latest_published_at = cursor

@@ -1,11 +1,9 @@
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock
 
-import pytest
 from botocore.exceptions import ClientError
 
 from src.store import (
     get_cursor,
-    get_release,
     list_release_keys,
     put_release,
     release_exists,
