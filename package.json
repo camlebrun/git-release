@@ -4,14 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "digest": "node scripts/build-digest.js",
-    "dev": "npm run digest && vite --port 3000",
-    "build": "npm run digest && vite build",
+    "dev": "vite --port 3000",
+    "build": "vite build",
     "preview": "vite preview --port 3000"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.1050.0",
-    "dotenv": "^17.4.2",
     "vite": "^8.0.13"
   }
 }
