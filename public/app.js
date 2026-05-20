@@ -50,7 +50,7 @@ function setupSevFilters() {
 }
 
 function buildRepoFilters(records) {
-  const repos = [...new Set(records.map(r => r.repo))].sort();
+  const repos = [...new Set([...records.map(r => r.repo), ...allAdvisories.map(a => a.repo)])].filter(Boolean).sort();
   const container = document.getElementById('repo-filters');
   container.innerHTML = `<button class="repo-btn active" data-repo="all">All</button>` +
     repos.map(r => `<button class="repo-btn" data-repo="${esc(r)}">${esc(r.split('/')[1])}</button>`).join('');
@@ -66,8 +66,10 @@ function buildRepoFilters(records) {
 
 function applyFilters() {
   const q = document.getElementById('search').value.trim().toLowerCase();
+
+  // Filter release cards
   const cards = document.querySelectorAll('.card');
-  let visible = 0;
+  let visibleCards = 0;
   cards.forEach(c => {
     const sevOk  = activeSev === 'all' || c.dataset.severity === activeSev;
     const repoOk = activeRepo === 'all' || c.dataset.repo === activeRepo;
@@ -78,10 +80,23 @@ function applyFilters() {
       c.textContent.toLowerCase().includes(q);
     const show = sevOk && repoOk && searchOk;
     c.classList.toggle('hidden', !show);
-    if (show) visible++;
+    if (show) visibleCards++;
   });
-  document.getElementById('empty-digest').classList.toggle('hidden', visible > 0 || cards.length === 0);
-  filterCveRows(q);
+  document.getElementById('empty-digest').classList.toggle('hidden', visibleCards > 0 || cards.length === 0);
+
+  // Filter advisory cards (same severity + repo + search logic)
+  const advisories = document.querySelectorAll('.advisory-card');
+  let visibleAdvisories = 0;
+  advisories.forEach(a => {
+    const sevOk  = activeSev === 'all' || a.dataset.severity === activeSev;
+    const repoOk = activeRepo === 'all' || a.dataset.repo === activeRepo;
+    const searchOk = !q || a.textContent.toLowerCase().includes(q);
+    const show = sevOk && repoOk && searchOk;
+    a.classList.toggle('hidden', !show);
+    if (show) visibleAdvisories++;
+  });
+  const emptyAdv = document.getElementById('empty-advisories');
+  if (emptyAdv) emptyAdv.classList.toggle('hidden', visibleAdvisories > 0 || advisories.length === 0);
 }
 
 function filterCveRows(q) {
@@ -146,7 +161,8 @@ function renderAdvisories(advisories) {
     const action = an.action ? `<span class="advisory-action">${esc(ACTION_LABEL[an.action] ?? an.action)}</span>` : '';
     const steps = (an.action_steps ?? []).map(s => `<li>${esc(s)}</li>`).join('');
     const link = a.html_url ?? a.url ?? '#';
-    return `<a class="advisory-card sev-border-${sev}" href="${esc(link)}" target="_blank" rel="noopener">
+    return `<a class="advisory-card sev-border-${sev}" href="${esc(link)}" target="_blank" rel="noopener"
+  data-severity="${esc(sev)}" data-repo="${esc(a.repo ?? '')}">
   <div class="advisory-header">
     <div class="advisory-ids">${ghsa}${cve}</div>
     <span class="sev sev-${sev}">${sev}</span>
