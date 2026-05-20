@@ -9,90 +9,88 @@
 </head>
 <body>
   <header>
-    <div class="header-top">
-      <div>
-        <h1>📡 StackRadar</h1>
-        <p class="subtitle">Daily release intelligence — AI summaries · severity tracking · tech lead digest</p>
-      </div>
+    <!-- Row 1: Title + Search -->
+    <div class="header-row-1">
+      <h1>📡 StackRadar</h1>
+      <input type="search" id="search" placeholder="Search..." autocomplete="off" />
     </div>
 
-    <div class="tabs">
-      <button class="tab active" data-tab="digest">
-        Digest <span class="badge" id="digest-count"></span>
-      </button>
-      <button class="tab" data-tab="security">
-        Security Advisories <span class="badge badge-cve" id="advisory-count"></span>
-      </button>
-    </div>
-
-    <div class="toolbar">
-      <input type="search" id="search" placeholder="Search repo, tag, keyword…" autocomplete="off" />
-
-      <!-- Severity filters -->
-      <div class="filter-group">
-        <span class="filter-label">Severity</span>
-        <div class="sev-filters">
-          <button class="sev-btn active" data-sev="all">All</button>
-          <button class="sev-btn" data-sev="critical" title="RCE, auth bypass, data loss — upgrade immediately">
-            <span class="sev sev-critical">critical</span>
-          </button>
-          <button class="sev-btn" data-sev="high" title="Security fix or data integrity risk — plan upgrade this sprint">
-            <span class="sev sev-high">high</span>
-          </button>
-          <button class="sev-btn" data-sev="medium" title="Breaking change requiring migration — schedule before next release">
-            <span class="sev sev-medium">medium</span>
-          </button>
-          <button class="sev-btn" data-sev="low" title="Minor behaviour change, low risk — review at next cycle">
-            <span class="sev sev-low">low</span>
-          </button>
-          <button class="sev-btn" data-sev="none" title="Pure feature or performance — no action required">
-            <span class="sev sev-none">none</span>
-          </button>
-        </div>
-
-        <!-- Legend -->
-        <div class="sev-legend">
-          <span class="legend-title">What do these mean?</span>
-          <div class="legend-items">
-            <span><span class="sev sev-critical">critical</span> RCE · auth bypass · data loss</span>
-            <span><span class="sev sev-high">high</span> Security fix · data integrity risk</span>
-            <span><span class="sev sev-medium">medium</span> Breaking change · migration needed</span>
-            <span><span class="sev sev-low">low</span> Minor behaviour change</span>
-            <span><span class="sev sev-none">none</span> Feature · perf · no action needed</span>
-          </div>
-        </div>
+    <!-- Row 2: Tabs + Filters inline -->
+    <div class="header-row-2">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="digest">
+          Release Notes <span class="badge" id="digest-count"></span>
+        </button>
+        <button class="tab" data-tab="security">
+          Security <span class="badge badge-cve" id="advisory-count"></span>
+        </button>
       </div>
 
-      <!-- Repo filters (populated by JS) -->
-      <div class="filter-group">
-        <span class="filter-label">Repo</span>
-        <div class="repo-filters" id="repo-filters"></div>
+      <div class="divider"></div>
+
+      <!-- Severity chips -->
+      <div class="inline-filters">
+        <button class="chip active" data-sev="all">All</button>
+        <button class="chip" data-sev="critical">critical</button>
+        <button class="chip" data-sev="high">high</button>
+        <button class="chip" data-sev="medium">medium</button>
+        <button class="chip" data-sev="low">low</button>
+        <button class="chip" data-sev="none">none</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Repo chips -->
+      <div class="inline-filters" id="repo-filters-inline">
+        <button class="chip active" data-repo="all">All repos</button>
       </div>
     </div>
   </header>
 
   <main>
     <section id="tab-digest" class="tab-panel active">
-      <div id="grid" class="grid"></div>
+      <div id="grid" class="bento-grid"></div>
       <p id="empty-digest" class="empty-state hidden">No releases match your filter.</p>
       <p id="loading" class="loading">Loading releases…</p>
     </section>
 
-  </main>
-
-  </main>
-
-  <!-- Security tab — full page -->
-  <section id="tab-security" class="tab-panel hidden">
-    <div class="advisory-page">
-      <div class="advisory-page-header">
-        <h2>🔒 Security Advisories</h2>
-        <p>Published security advisories from the GitHub Security Advisory Database for tracked repositories.</p>
-      </div>
+    <section id="tab-security" class="tab-panel hidden">
       <div id="advisory-list" class="advisory-grid"></div>
       <p id="empty-advisories" class="empty-state hidden">No security advisories found.</p>
+    </section>
+  </main>
+
+  <!-- Release detail drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+      <div class="drawer-meta">
+        <span id="drawer-repo" class="card-repo"></span>
+        <span id="drawer-sev" class="sev"></span>
+      </div>
+      <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
     </div>
-  </section>
+    <div class="drawer-body">
+      <h2 id="drawer-title" class="drawer-title"></h2>
+      <p id="drawer-date" class="card-date"></p>
+      <p id="drawer-summary" class="drawer-summary"></p>
+      <div id="drawer-changes-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Key changes</h3>
+        <ul id="drawer-changes" class="card-changes drawer-changes"></ul>
+      </div>
+      <div id="drawer-tags-wrap" class="drawer-section hidden">
+        <div id="drawer-tags" class="tags"></div>
+      </div>
+      <div id="drawer-cve-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">CVE references</h3>
+        <div id="drawer-cves" class="drawer-cves"></div>
+      </div>
+      <a id="drawer-link" class="drawer-link" target="_blank" rel="noopener">
+        View on GitHub →
+      </a>
+    </div>
+  </aside>
 
   <script type="module" src="app.js"></script>
 </body>

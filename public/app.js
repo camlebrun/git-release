@@ -1,8 +1,7 @@
-/* git-release digest — frontend app */
+/* git-release digest — Bento Grid Edition */
 'use strict';
 
-// Fetched at runtime from R2 public URL (CORS configured in Cloudflare dashboard)
-// R2 → git-release-releases → Settings → CORS Policy → AllowedOrigins: ["*"]
+// R2 public URL (CORS configured in Cloudflare dashboard)
 const DIGEST_URL = 'https://pub-d7a866e02d744f3fb57bc3859858a5df.r2.dev/digest.json';
 
 let allRecords = [];
@@ -15,8 +14,81 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupSearch();
   setupSevFilters();
+  setupDrawer();
   loadDigest();
 });
+
+// ── Drawer ─────────────────────────────────────────────────────────────────
+function setupDrawer() {
+  const backdrop = document.getElementById('drawer-backdrop');
+  const drawer   = document.getElementById('drawer');
+  const closeBtn = document.getElementById('drawer-close');
+
+  function closeDrawer() {
+    drawer.classList.remove('open');
+    backdrop.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+
+  closeBtn.addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeDrawer(); });
+}
+
+function openDrawer(record) {
+  const a   = record.analysis ?? {};
+  const sev = a.severity ?? 'none';
+
+  document.getElementById('drawer-repo').textContent = record.repo.split('/')[1].toUpperCase();
+  const sevEl = document.getElementById('drawer-sev');
+  sevEl.textContent = sev;
+  sevEl.className = `sev sev-${sev}`;
+
+  document.getElementById('drawer-title').textContent = record.name || record.tag;
+  document.getElementById('drawer-date').textContent  = formatDate(record.published_at);
+  document.getElementById('drawer-summary').textContent = a.summary ?? '';
+
+  const changesWrap = document.getElementById('drawer-changes-wrap');
+  const changesList = document.getElementById('drawer-changes');
+  const changes = a.key_changes ?? [];
+  if (changes.length) {
+    changesList.innerHTML = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    changesWrap.classList.remove('hidden');
+  } else {
+    changesWrap.classList.add('hidden');
+  }
+
+  const tagsWrap = document.getElementById('drawer-tags-wrap');
+  const tagsEl   = document.getElementById('drawer-tags');
+  const tags = a.tags ?? [];
+  if (tags.length) {
+    tagsEl.innerHTML = tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    tagsWrap.classList.remove('hidden');
+  } else {
+    tagsWrap.classList.add('hidden');
+  }
+
+  const cveWrap = document.getElementById('drawer-cve-wrap');
+  const cvesEl  = document.getElementById('drawer-cves');
+  const cveRefs = a.cve_references ?? [];
+  if (cveRefs.length) {
+    cvesEl.innerHTML = cveRefs.map(id =>
+      `<a class="drawer-cve-chip" href="https://nvd.nist.gov/vuln/detail/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a>`
+    ).join('');
+    cveWrap.classList.remove('hidden');
+  } else {
+    cveWrap.classList.add('hidden');
+  }
+
+  document.getElementById('drawer-link').href = record.html_url ?? '#';
+
+  const backdrop = document.getElementById('drawer-backdrop');
+  const drawer   = document.getElementById('drawer');
+  backdrop.classList.remove('hidden');
+  drawer.classList.remove('hidden');
+  requestAnimationFrame(() => drawer.classList.add('open'));
+  document.body.style.overflow = 'hidden';
+}
 
 // ── Tabs ───────────────────────────────────────────────────────────────────
 function setupTabs() {
@@ -25,8 +97,8 @@ function setupTabs() {
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === btn));
       document.querySelectorAll('.tab-panel').forEach(p => {
         const show = p.id === `tab-${btn.dataset.tab}`;
-        p.classList.toggle('hidden', !show);
         p.classList.toggle('active', show);
+        p.classList.toggle('hidden', !show);
       });
     });
   });
@@ -39,9 +111,9 @@ function setupSearch() {
 
 // ── Severity filters ───────────────────────────────────────────────────────
 function setupSevFilters() {
-  document.querySelectorAll('.sev-btn').forEach(btn => {
+  document.querySelectorAll('.chip[data-sev]').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.sev-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.chip[data-sev]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeSev = btn.dataset.sev;
       applyFilters();
@@ -49,14 +121,20 @@ function setupSevFilters() {
   });
 }
 
+// ── Repo filters ───────────────────────────────────────────────────────────
 function buildRepoFilters(records) {
   const repos = [...new Set(records.map(r => r.repo))].sort();
-  const container = document.getElementById('repo-filters');
-  container.innerHTML = `<button class="repo-btn active" data-repo="all">All</button>` +
-    repos.map(r => `<button class="repo-btn" data-repo="${esc(r)}">${esc(r.split('/')[1])}</button>`).join('');
-  container.querySelectorAll('.repo-btn').forEach(btn => {
+  const container = document.getElementById('repo-filters-inline');
+
+  const repoButtons = repos.map(r =>
+    `<button class="chip" data-repo="${esc(r)}">${esc(r.split('/')[1])}</button>`
+  ).join('');
+
+  container.innerHTML = `<button class="chip active" data-repo="all">All repos</button>${repoButtons}`;
+
+  container.querySelectorAll('.chip').forEach(btn => {
     btn.addEventListener('click', () => {
-      container.querySelectorAll('.repo-btn').forEach(b => b.classList.remove('active'));
+      container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeRepo = btn.dataset.repo;
       applyFilters();
@@ -64,32 +142,37 @@ function buildRepoFilters(records) {
   });
 }
 
+// ── Filters ────────────────────────────────────────────────────────────────
 function applyFilters() {
   const q = document.getElementById('search').value.trim().toLowerCase();
+
   const cards = document.querySelectorAll('.card');
-  let visible = 0;
+  let visibleCards = 0;
   cards.forEach(c => {
-    const sevOk  = activeSev === 'all' || c.dataset.severity === activeSev;
+    const sevOk = activeSev === 'all' || c.dataset.severity === activeSev;
     const repoOk = activeRepo === 'all' || c.dataset.repo === activeRepo;
     const searchOk = !q ||
-      c.dataset.repo.includes(q) ||
-      c.dataset.tags.includes(q) ||
-      c.dataset.tag.includes(q) ||
+      c.dataset.repo.toLowerCase().includes(q) ||
+      c.dataset.tags.toLowerCase().includes(q) ||
       c.textContent.toLowerCase().includes(q);
     const show = sevOk && repoOk && searchOk;
     c.classList.toggle('hidden', !show);
-    if (show) visible++;
+    if (show) visibleCards++;
   });
-  document.getElementById('empty-digest').classList.toggle('hidden', visible > 0 || cards.length === 0);
-  filterCveRows(q);
-}
 
-function filterCveRows(q) {
-  document.querySelectorAll('#cve-tbody tr').forEach(row => {
-    const repoOk = activeRepo === 'all' || row.dataset.repo === activeRepo;
-    const searchOk = !q || row.textContent.toLowerCase().includes(q);
-    row.classList.toggle('hidden', !repoOk || !searchOk);
+  const advisories = document.querySelectorAll('.advisory-card');
+  let visibleAdvisories = 0;
+  advisories.forEach(a => {
+    const sevOk = activeSev === 'all' || a.dataset.severity === activeSev;
+    const repoOk = activeRepo === 'all' || a.dataset.repo === activeRepo;
+    const searchOk = !q || a.textContent.toLowerCase().includes(q);
+    const show = sevOk && repoOk && searchOk;
+    a.classList.toggle('hidden', !show);
+    if (show) visibleAdvisories++;
   });
+
+  document.getElementById('empty-digest').classList.toggle('hidden', visibleCards > 0 || cards.length === 0);
+  document.getElementById('empty-advisories').classList.toggle('hidden', visibleAdvisories > 0 || advisories.length === 0);
 }
 
 // ── Data fetch ─────────────────────────────────────────────────────────────
@@ -114,164 +197,109 @@ async function loadDigest() {
 
 function updateCounts(records, advisories) {
   document.getElementById('digest-count').textContent = records.length || '';
-  const sevEl = document.getElementById('advisory-count');
-  if (sevEl) sevEl.textContent = advisories.length || '';
+  document.getElementById('advisory-count').textContent = advisories.length || '';
 }
 
-// ── Security advisories ────────────────────────────────────────────────────
-const SEV_ORDER = { critical: 0, high: 1, medium: 2, low: 3 };
-
-function renderAdvisories(advisories) {
-  const container = document.getElementById('advisory-list');
-  const empty = document.getElementById('empty-advisories');
-  if (!container) return;
-
-  if (!advisories.length) {
-    empty?.classList.remove('hidden');
-    return;
-  }
-
-  const ACTION_LABEL = {
-    'upgrade-immediately': '🚨 Upgrade immediately',
-    'upgrade-this-sprint': '⚠️ Upgrade this sprint',
-    'monitor': '👀 Monitor',
-    'no-action': '✅ No action needed',
-  };
-
-  container.innerHTML = advisories.map(a => {
-    const sev  = a.severity ?? 'unknown';
-    const an   = a.analysis ?? {};
-    const ghsa = a.ghsa_id ? `<span class="advisory-id">${esc(a.ghsa_id)}</span>` : '';
-    const cve  = a.cve_id  ? `<span class="advisory-cve">${esc(a.cve_id)}</span>` : '';
-    const action = an.action ? `<span class="advisory-action">${esc(ACTION_LABEL[an.action] ?? an.action)}</span>` : '';
-    const steps = (an.action_steps ?? []).map(s => `<li>${esc(s)}</li>`).join('');
-    const link = a.html_url ?? a.url ?? '#';
-    return `<a class="advisory-card sev-border-${sev}" href="${esc(link)}" target="_blank" rel="noopener">
-  <div class="advisory-header">
-    <div class="advisory-ids">${ghsa}${cve}</div>
-    <span class="sev sev-${sev}">${sev}</span>
-  </div>
-  <p class="advisory-repo">${esc(a.repo)}</p>
-  <p class="advisory-summary">${esc(a.summary)}</p>
-  <p class="advisory-desc">${esc(stripMd(an.impact || a.description || '').slice(0, 280))}</p>
-  ${an.affected_versions ? `<p class="advisory-meta">Affected: <strong>${esc(an.affected_versions)}</strong>${an.fix_version ? ` → Fixed in: <strong>${esc(an.fix_version)}</strong>` : ''}</p>` : ''}
-  ${action}
-  ${steps ? `<ul class="advisory-steps">${steps}</ul>` : ''}
-  <p class="advisory-date">${formatDate(a.published_at)}</p>
-</a>`;
-  }).join('');
-}
-
-// ── Grid ───────────────────────────────────────────────────────────────────
+// ── Bento Grid ─────────────────────────────────────────────────────────────
 function renderGrid(records) {
   const grid = document.getElementById('grid');
   if (!records.length) {
     document.getElementById('empty-digest').classList.remove('hidden');
     return;
   }
-  grid.innerHTML = records.map(renderCard).join('');
-}
 
-function renderCard(r) {
-  const a = r.analysis ?? {};
-  const severity = a.severity ?? 'none';
-  const tags = a.tags ?? [];
-  const changes = (a.key_changes ?? []).slice(0, 6);
-  const cveRefs = a.cve_references ?? [];
-  const cveDetails = r.cve_details ?? [];
+  grid.innerHTML = records.map((r, idx) => {
+    const a        = r.analysis ?? {};
+    const severity = a.severity ?? 'none';
+    const tags     = a.tags ?? [];
+    const changes  = (a.key_changes ?? []).slice(0, 3);
 
-  const tagChips = tags.map(t => `<span class="chip">${esc(t)}</span>`).join('');
-  const cveChips = cveRefs.map(id => {
-    const d = cveDetails.find(x => x.id === id);
-    const score = d?.cvss_score ? ` ${d.cvss_score}` : '';
-    return `<span class="chip chip-cve"><a href="https://nvd.nist.gov/vuln/detail/${esc(id)}" target="_blank" rel="noopener">${esc(id)}${score}</a></span>`;
-  }).join('');
+    const changesList = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    const tagChips    = tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
 
-  const changesList = changes.map(c => `<li>${esc(c)}</li>`).join('');
-  const hasMeta = tagChips || cveChips;
-
-  return `
-<article class="card"
+    return `<article class="card" data-idx="${idx}"
   data-repo="${esc(r.repo)}"
-  data-tag="${esc(r.tag ?? '')}"
   data-tags="${esc(tags.join(' '))}"
   data-severity="${esc(severity)}">
   <div class="card-header">
-    <div class="card-meta">
-      <span class="card-repo">${esc(r.repo)}</span>
-      <div class="card-title">
-        <a href="${esc(r.html_url ?? '#')}" target="_blank" rel="noopener">${esc(r.name || r.tag)}</a>
-      </div>
-    </div>
-    <div class="card-badges">
-      <span class="sev sev-${severity}">${severity}</span>
-      <span class="card-date">${formatDate(r.published_at)}</span>
-    </div>
+    <span class="card-repo">${esc(r.repo.split('/')[1])}</span>
+    <span class="sev sev-${severity}">${severity}</span>
   </div>
-  ${a.summary ? `<p class="card-summary">${esc(a.summary)}</p>` : ''}
+  <h3 class="card-title">${esc(r.name || r.tag)}</h3>
+  <p class="card-date">${formatDate(r.published_at)}</p>
+  <p class="card-summary">${esc(a.summary ?? '')}</p>
   ${changesList ? `<ul class="card-changes">${changesList}</ul>` : ''}
-  ${hasMeta ? `<div class="chips">${tagChips}${cveChips}</div>` : ''}
+  <div class="card-footer">
+    ${tagChips ? `<div class="tags">${tagChips}</div>` : '<div></div>'}
+    <span class="card-cta">Details <svg width="12" height="12" viewBox="0 0 12 12" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2.5 6h7M6.5 3l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+  </div>
 </article>`.trim();
+  }).join('');
+
+  grid.querySelectorAll('.card').forEach(el => {
+    el.addEventListener('click', () => {
+      const r = records[+el.dataset.idx];
+      if (r) openDrawer(r);
+    });
+  });
 }
 
-// ── CVE table ──────────────────────────────────────────────────────────────
-const CVE_RE = /^CVE-\d{4}-\d{4,}$/i;
+// ── Security Advisories ────────────────────────────────────────────────────
+const ACTION_LABEL = {
+  'upgrade-immediately': '🚨 Upgrade immediately',
+  'upgrade-this-sprint': '⚠️ Upgrade this sprint',
+  'monitor': '👀 Monitor',
+  'no-action': '✅ No action needed',
+};
 
-function renderCveTable(records) {
-  const tbody  = document.getElementById('cve-tbody');
-  const empty  = document.getElementById('empty-cves');
-  const wrap   = document.querySelector('.table-wrap');
-
-  const rows = [];
-  for (const r of records) {
-    for (const id of (r.analysis?.cve_references ?? [])) {
-      if (!CVE_RE.test(id)) continue;  // skip hallucinated / malformed IDs
-      const d = (r.cve_details ?? []).find(x => x.id === id) ?? {};
-      rows.push({ id, d, repo: r.repo, tag: r.tag, severity: r.analysis?.severity ?? 'none' });
-    }
-  }
-
-  if (!rows.length) {
-    wrap?.classList.add('hidden');
-    empty.classList.remove('hidden');
+function renderAdvisories(advisories) {
+  const container = document.getElementById('advisory-list');
+  if (!advisories.length) {
+    document.getElementById('empty-advisories').classList.remove('hidden');
     return;
   }
-  wrap?.classList.remove('hidden');
 
-  const sevOrder = { critical: 0, high: 1, medium: 2, low: 3, none: 4 };
-  rows.sort((a, b) => {
-    const sd = (sevOrder[a.severity] ?? 5) - (sevOrder[b.severity] ?? 5);
-    return sd !== 0 ? sd : (b.d.cvss_score ?? 0) - (a.d.cvss_score ?? 0);
-  });
+  container.innerHTML = advisories.map(a => {
+    const sev  = a.severity ?? 'unknown';
+    const an   = a.analysis ?? {};
+    const ghsa = a.ghsa_id ?? '';
+    const cve  = a.cve_id  ?? '';
+    const link = a.html_url ?? a.url ?? '#';
+    const desc = stripMd(an.impact || a.description || '').slice(0, 280);
 
-  tbody.innerHTML = rows.map(({ id, d, repo, tag, severity }) => {
-    const score = d.cvss_score ?? null;
-    const cvssClass = score >= 9 ? 'cvss-crit' : score >= 7 ? 'cvss-high' : score >= 4 ? 'cvss-medium' : score ? 'cvss-low' : '';
-    const scoreHtml = score
-      ? `<span class="cvss-pill ${cvssClass}">${score}</span>`
-      : `<span class="cvss-pill">—</span>`;
-    const desc = d.description ? esc(d.description.slice(0, 180)) + (d.description.length > 180 ? '…' : '') : '—';
-    return `<tr data-repo="${esc(repo)}">
-      <td><a class="cve-link" href="https://nvd.nist.gov/vuln/detail/${esc(id)}" target="_blank" rel="noopener">${esc(id)}</a></td>
-      <td>${scoreHtml}</td>
-      <td><span class="sev sev-${severity}">${severity}</span></td>
-      <td>${esc(repo)}</td>
-      <td>${esc(tag ?? '')}</td>
-      <td class="desc-cell">${desc}</td>
-    </tr>`;
+    return `<a class="advisory-card"
+   href="${esc(link)}"
+   target="_blank"
+   rel="noopener"
+   data-repo="${esc(a.repo ?? '')}"
+   data-severity="${esc(sev)}">
+  <div class="advisory-header">
+    <div class="advisory-ids">
+      ${ghsa ? `<span class="advisory-id">${esc(ghsa)}</span>` : ''}
+      ${cve  ? `<span class="advisory-cve">${esc(cve)}</span>`  : ''}
+    </div>
+    <span class="sev sev-${sev}">${sev}</span>
+  </div>
+  <span class="card-repo">${esc((a.repo ?? '').split('/')[1])}</span>
+  <h3 class="advisory-title">${esc(a.summary)}</h3>
+  <p class="advisory-desc">${esc(desc)}${desc.length === 280 ? '…' : ''}</p>
+  ${an.affected_versions ? `<p class="card-date">Affected: <strong>${esc(an.affected_versions)}</strong>${an.fix_version ? ` → Fixed: <strong>${esc(an.fix_version)}</strong>` : ''}</p>` : ''}
+  ${an.action ? `<p class="card-date">${esc(ACTION_LABEL[an.action] ?? an.action)}</p>` : ''}
+  <p class="card-date">${formatDate(a.published_at)}</p>
+</a>`.trim();
   }).join('');
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function stripMd(str) {
   return String(str ?? '')
-    .replace(/#{1,6}\s+/g, '')        // headings
-    .replace(/\*\*(.+?)\*\*/g, '$1') // bold
-    .replace(/\*(.+?)\*/g, '$1')     // italic
-    .replace(/`{1,3}[^`]*`{1,3}/g, '') // code
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // links
-    .replace(/^[-*+]\s+/gm, '')      // bullets
-    .replace(/\n{2,}/g, ' ')         // double newlines → space
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`{1,3}[^`]*`{1,3}/g, '')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .replace(/^[-*+]\s+/gm, '')
+    .replace(/\n{2,}/g, ' ')
     .replace(/\n/g, ' ')
     .trim();
 }
