@@ -85,11 +85,11 @@ def _handle_trigger(request: Request) -> Response:
         return _json({"error": "Unauthorized"}, status=401)
 
     s3 = _get_s3()
-    groq_key = get_secret(GCP_PROJECT, "GROQ_API_KEY")
+    mistral_key = get_secret(GCP_PROJECT, "MISTRAL_API_KEY")
     try:
         github_token: str | None = get_secret(GCP_PROJECT, "GITHUB_TOKEN")
     except Exception:
         github_token = None
 
-    result = run_pipeline(s3, R2_BUCKET, groq_key, github_token)
+    result = run_pipeline(s3, R2_BUCKET, mistral_key, github_token, llm_provider="mistral", llm_delay_s=1.2)
     return _json(result)
