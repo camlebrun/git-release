@@ -8,19 +8,21 @@ let activePkgType = 'all';
 let pkgLatestOnly = true;
 
 const PKG_TYPE = {
-  'dbt-utils':         'utils',
-  'dbt_artifacts':     'utils',
-  'dbt-expectations':  'data-quality',
-  'elementary':        'data-quality',
-  'soda-core':         'data-quality',
+  'dbt-utils':           'utils',
+  'dbt_artifacts':       'utils',
+  'dbt-external-tables': 'utils',
+  'dbt-expectations':    'data-quality',
+  'elementary':          'data-quality',
+  'soda-core':           'data-quality',
 };
 
 const PKG_DESC = {
-  'dbt-utils':         'Common macros (date logic, cross-db helpers, set operations) used across almost every dbt project.',
-  'dbt_artifacts':     'Loads dbt run artifacts (manifest, run results) into your warehouse for lineage and run tracking.',
-  'dbt-expectations':  'Actively maintained fork by Metaplane — Great Expectations-style tests (distributions, cardinality, regex…) for dbt 1.7+.',
-  'elementary':        'Native dbt observability: anomaly detection, schema change alerts, and a data reliability dashboard.',
-  'soda-core':         'YAML-defined data quality checks (nulls, freshness, schema) that run in-pipeline or on a schedule.',
+  'dbt-utils':           'Common macros (date logic, cross-db helpers, set operations) used across almost every dbt project.',
+  'dbt_artifacts':       'Loads dbt run artifacts (manifest, run results) into your warehouse for lineage and run tracking.',
+  'dbt-external-tables': 'Stages and loads external tables (S3, GCS, ADLS) into your warehouse directly from dbt.',
+  'dbt-expectations':    'Actively maintained fork by Metaplane — Great Expectations-style tests (distributions, cardinality, regex…) for dbt 1.7+.',
+  'elementary':          'Native dbt observability: anomaly detection, schema change alerts, and a data reliability dashboard.',
+  'soda-core':           'YAML-defined data quality checks (nulls, freshness, schema) that run in-pipeline or on a schedule.',
 };
 
 document.addEventListener('DOMContentLoaded', () => {

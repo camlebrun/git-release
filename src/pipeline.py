@@ -101,10 +101,13 @@ def _is_stale(releases: list[dict[str, Any]]) -> bool:
         return False
 
 
-def _should_store_dbt_release(analysis: dict[str, Any], release: dict[str, Any]) -> bool:
-    """For dbt packages: store patches only if prod-breaking; always store minor/major."""
+def _should_store_dbt_release(
+    analysis: dict[str, Any], release: dict[str, Any], all_patches: bool = False
+) -> bool:
+    """For dbt packages: store patches only if prod-breaking; always store minor/major.
+    Set all_patches=True to bypass the prod-breaking filter for a repo."""
     sv = parse_semver(str(release.get("tag_name", "")))
-    if sv.valid and sv.patch > 0:
+    if sv.valid and sv.patch > 0 and not all_patches:
         return bool(analysis.get("is_prod_breaking_bug", False))
     return True
 
@@ -131,6 +134,7 @@ def run_pipeline(
         minor_only = repo_cfg.get("minor_only", False)
         repo_type = repo_cfg.get("type", "release")
         is_dbt_package = repo_type == "dbt_package"
+        all_patches = bool(repo_cfg.get("all_patches", False))
         is_deprecated = bool(repo_cfg.get("deprecated", False))
         deprecated_notice = repo_cfg.get("deprecated_notice")
         owner, name = repo.split("/", 1)
@@ -189,7 +193,7 @@ def run_pipeline(
                     logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
                     continue
 
-                if is_dbt_package and not _should_store_dbt_release(analysis, release):
+                if is_dbt_package and not _should_store_dbt_release(analysis, release, all_patches):
                     logger.info("[%s] skipping patch %s — not prod-breaking", repo, tag)
                     latest_published_at = str(release.get("published_at", ""))
                     continue
