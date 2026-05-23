@@ -12,3 +12,5 @@ node_modules/
 .DS_Store
 .vite/
 public/digest.json
+cloudbuild-trigger.yaml
+new_front/
