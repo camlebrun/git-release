@@ -8,7 +8,7 @@
   {"repo": "apache/airflow",           "group": "orchestration","min_version": "3.0.0",  "stable_only": true, "minor_only": true},
 
   {"repo": "dbt-labs/dbt-utils",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
-  {"repo": "calogica/dbt-expectations",    "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
+  {"repo": "metaplane/dbt-expectations",    "group": "dbt-packages", "type": "dbt_package", "stable_only": true, "min_version": "0.10.6", "notice": "calogica/dbt-expectations last released 0.10.0 on Sep 10, 2024 and is no longer maintained. Metaplane forked it in Jan 2025 starting at 0.10.6 and has been actively maintaining it since — 5 releases in under a year (0.10.6 → 0.10.10, Dec 2025), with support for dbt 1.7+, BigQuery, Snowflake, DuckDB, and Trino."},
   {"repo": "brooklyn-data/dbt_artifacts",  "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
   {"repo": "elementary-data/elementary",   "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
   {"repo": "sodadata/soda-core",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true, "min_version": "4.0.0"}

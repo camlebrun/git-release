@@ -63,6 +63,8 @@ def _build_record(
     analysis_error: str | None,
     cve_details: list[dict[str, Any]],
     group: str | None = None,
+    deprecated: bool = False,
+    deprecated_notice: str | None = None,
 ) -> dict[str, Any]:
     return {
         "id": release.get("id"),
@@ -80,6 +82,8 @@ def _build_record(
         "analysis": analysis,
         "analysis_error": analysis_error,
         "cve_details": cve_details,
+        "deprecated": deprecated,
+        "deprecated_notice": deprecated_notice,
     }
 
 
@@ -127,6 +131,8 @@ def run_pipeline(
         minor_only = repo_cfg.get("minor_only", False)
         repo_type = repo_cfg.get("type", "release")
         is_dbt_package = repo_type == "dbt_package"
+        is_deprecated = bool(repo_cfg.get("deprecated", False))
+        deprecated_notice = repo_cfg.get("deprecated_notice")
         owner, name = repo.split("/", 1)
         try:
             cursor = get_cursor(s3, bucket, owner, name)
@@ -188,7 +194,10 @@ def run_pipeline(
                     latest_published_at = str(release.get("published_at", ""))
                     continue
 
-                record = _build_record(release, repo, analysis, error, [], group)
+                record = _build_record(
+                    release, repo, analysis, error, [], group,
+                    is_deprecated, deprecated_notice,
+                )
                 put_release(s3, bucket, record)
                 new_count += 1
                 latest_published_at = str(release.get("published_at", ""))
