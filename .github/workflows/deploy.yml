@@ -26,7 +26,6 @@ jobs:
             --source=functions/email \
             --entry-point=send_email \
             --trigger-http \
-            --allow-unauthenticated \
             --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com \
             --memory=512MB \
             --timeout=120s \
