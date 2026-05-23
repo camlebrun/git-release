@@ -44,7 +44,7 @@ steps:
       - --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com
       - --memory=512Mi
       - --cpu=1
-      - --task-timeout=300
+      - --task-timeout=900
       - --max-retries=0
       - --project=git-release-496817
 

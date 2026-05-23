@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -17,11 +18,163 @@ from src.semver import parse_semver
 
 logger = logging.getLogger(__name__)
 
+_TRIVIAL_CHANGE_PATTERNS = [
+    "update readme",
+    "add contributors",
+    "update contributors",
+    "bump version",
+    "bump changelog",
+    "update changelog",
+    "fix typo",
+    "update docs",
+    "update documentation",
+    "formatting",
+    "linting",
+    "style:",
+    "chore:",
+    "ci:",
+    "whitespace",
+]
+
+_PROD_BREAKING_BUG_PATTERNS = [
+    "fix",
+    "bug",
+    "crash",
+    "error",
+    "broken",
+    "regression",
+    "exception",
+    "fails",
+    "failure",
+    "incorrect",
+    "wrong result",
+    "typeerror",
+    "attributeerror",
+    "keyerror",
+    "importerror",
+    "null",
+    "none type",
+    "data loss",
+    "silent",
+    "incorrect result",
+]
+
+_BLACKLISTED_SECTIONS = [
+    "migrating from <1.0.0 to >=1.0.0",
+    "migrating from",
+]
+
 
 class GitHubFetchError(Exception):
     def __init__(self, status: int, message: str) -> None:
         super().__init__(f"GitHub API error {status}: {message}")
         self.status = status
+
+
+def fetch_readme(owner: str, repo: str, token: str | None = None) -> str:
+    """Fetch README content from GitHub API, return plain text (truncated to 3000 chars)."""
+    url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/readme"
+    try:
+        resp = requests.get(
+            url,
+            headers={**_headers_base(token), "Accept": "application/vnd.github.raw+json"},
+            timeout=GITHUB_TIMEOUT_S,
+        )
+        if resp.ok:
+            return resp.text[:3000]
+    except Exception as e:
+        logger.warning("Could not fetch README for %s/%s: %s", owner, repo, e)
+    return ""
+
+
+def filter_trivial_changes(changes: list[str]) -> list[str]:
+    """Remove trivial/cosmetic entries from a key_changes list."""
+    result = []
+    for c in changes:
+        if not isinstance(c, str):
+            continue
+        low = c.lower()
+        if any(p in low for p in _TRIVIAL_CHANGE_PATTERNS):
+            continue
+        if any(low.startswith(section) for section in _BLACKLISTED_SECTIONS):
+            continue
+        result.append(c)
+    return result
+
+
+def heuristic_dbt_analysis(
+    release: dict[str, object],
+    readme: str,
+) -> dict[str, object]:
+    """Rule-based dbt package analysis — no LLM required, used for testing."""
+    from src.semver import parse_semver
+
+    tag = str(release.get("tag_name", ""))
+    body = str(release.get("body", "")).lower()
+    name = str(release.get("name", tag))
+    sv = parse_semver(tag)
+
+    # Detect prod-breaking bug
+    is_prod_breaking_bug = any(p in body for p in _PROD_BREAKING_BUG_PATTERNS) and sv.patch > 0
+
+    # Determine severity
+    if "data loss" in body or "corruption" in body or "silent" in body:
+        severity = "critical"
+    elif "crash" in body or "exception" in body or "typeerror" in body or "keyerror" in body:
+        severity = "high"
+    elif is_prod_breaking_bug:
+        severity = "medium"
+    elif sv.minor > 0 and sv.patch == 0:
+        severity = "low"
+    else:
+        severity = "none"
+
+    # Extract purpose from first non-empty README paragraph (strip HTML tags)
+    purpose = ""
+    for para in readme.split("\n\n"):
+        clean = para.strip().lstrip("#").strip()
+        clean = re.sub(r"<[^>]+>", "", clean).strip()  # strip HTML tags
+        clean = re.sub(r"\s+", " ", clean)  # collapse whitespace
+        if len(clean) > 40 and not clean.startswith("!"):
+            purpose = clean[:300]
+            break
+
+    # Parse key changes from release body bullet points (skip markdown headers)
+    raw_changes = []
+    for line in str(release.get("body", "")).splitlines():
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        stripped = stripped.lstrip("-*•").strip()
+        if stripped and len(stripped) > 10:
+            raw_changes.append(stripped)
+    key_changes = filter_trivial_changes(raw_changes[:10])[:6]
+
+    tags: list[str] = []
+    if is_prod_breaking_bug:
+        tags.append("bug-fix")
+    if sv.patch == 0 and sv.minor == 0:
+        tags.append("breaking")
+    if not key_changes:
+        tags.append("docs-only")
+    if not tags:
+        tags.append("feature" if sv.patch == 0 else "bug-fix")
+
+    return {
+        "purpose": purpose or f"{release.get('repo', '')} dbt package.",
+        "summary": f"{name} — {'patch fix' if sv.patch > 0 else 'minor/major release'}.",
+        "key_changes": key_changes,
+        "is_prod_breaking_bug": is_prod_breaking_bug,
+        "severity": severity,
+        "tags": tags,
+    }
+
+
+def _headers_base(token: str | None) -> dict[str, str]:
+    h: dict[str, str] = {"X-GitHub-Api-Version": "2022-11-28"}
+    if token:
+        h["Authorization"] = f"Bearer {token}"
+    return h
 
 
 def _headers(token: str | None) -> dict[str, str]:

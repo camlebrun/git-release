@@ -246,10 +246,11 @@ async function loadDigest() {
     allRecords = Array.isArray(data) ? data : (data.releases ?? []);
     allAdvisories = Array.isArray(data) ? [] : (data.advisories ?? []);
     loading.classList.add('hidden');
-    renderGrid(allRecords);
+    const nonPkg = allRecords.filter(r => r.group !== 'dbt-packages');
+    renderGrid(nonPkg);
     renderAdvisories(allAdvisories);
-    updateCounts(allRecords, allAdvisories);
-    buildRepoFilters(allRecords);
+    updateCounts(nonPkg, allAdvisories);
+    buildRepoFilters(nonPkg);
   } catch (err) {
     loading.className = 'empty-state';
     loading.textContent = `⚠ Failed to load: ${err.message}`;
