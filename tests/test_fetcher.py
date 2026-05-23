@@ -3,8 +3,10 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from src.fetcher import (
+    HISTORICAL_TAG,
     GitHubFetchError,
     backfill_releases,
+    fetch_changelog_releases,
     filter_trivial_changes,
     get_new_releases,
 )
@@ -152,3 +154,120 @@ def test_filter_skips_non_string_entries() -> None:
     changes = ["Fix typo", 42, None, "Real change"]  # type: ignore[list-item]
     result = filter_trivial_changes(changes)
     assert result == ["Real change"]
+
+
+# ── fetch_changelog_releases ─────────────────────────────────────────────────
+
+_SAMPLE_CHANGELOG = """\
+# dbt Fusion changelog
+
+## 2.0.0-preview-nightly.5
+
+Released January 15, 2026
+
+### Features
+
+- Nightly build, should be ignored
+
+## 2.0.0-preview.10
+
+Released January 20, 2026
+
+### Features
+
+- [dbt-fusion] Add Snowflake adapter support
+
+## 2.0.0-preview.9
+
+Released January 05, 2026
+
+### Fixes
+
+- [dbt-fusion] Fix manifest regression
+
+## dbt-fusion 2.0.0-beta.3
+
+Released December 10, 2025
+
+### Features
+
+- Old beta format, should be ignored
+
+## 2.0.0-preview.5
+
+Released November 20, 2025
+
+### Features
+
+- [dbt-fusion] Initial BigQuery support
+
+## 2.0.0-preview.4
+
+Released October 01, 2025
+
+### Features
+
+- [dbt-fusion] First preview release
+"""
+
+
+def _make_raw_resp(text: str) -> MagicMock:
+    resp = MagicMock()
+    resp.ok = True
+    resp.status_code = 200
+    resp.text = text
+    return resp
+
+
+def test_changelog_excludes_nightly_and_beta() -> None:
+    with patch("src.fetcher.requests.get", return_value=_make_raw_resp(_SAMPLE_CHANGELOG)):
+        result = fetch_changelog_releases("owner", "repo")
+    tags = [r["tag_name"] for r in result]
+    assert "2.0.0-preview-nightly.5" not in tags
+    assert not any("beta" in str(t) for t in tags)
+
+
+def test_changelog_creates_historical_entry_for_pre_2026() -> None:
+    with patch("src.fetcher.requests.get", return_value=_make_raw_resp(_SAMPLE_CHANGELOG)):
+        result = fetch_changelog_releases("owner", "repo")
+    assert result[0]["tag_name"] == HISTORICAL_TAG
+    meta = result[0]["_historical_meta"]
+    assert isinstance(meta, dict)
+    assert meta["version_count"] == 2
+    assert meta["first_version"] == "2.0.0-preview.4"
+    assert meta["last_version"] == "2.0.0-preview.5"
+
+
+def test_changelog_2026_releases_returned_separately() -> None:
+    with patch("src.fetcher.requests.get", return_value=_make_raw_resp(_SAMPLE_CHANGELOG)):
+        result = fetch_changelog_releases("owner", "repo")
+    tags_2026 = [r["tag_name"] for r in result if r["tag_name"] != HISTORICAL_TAG]
+    assert "2.0.0-preview.9" in tags_2026
+    assert "2.0.0-preview.10" in tags_2026
+
+
+def test_changelog_2026_releases_ascending_order() -> None:
+    with patch("src.fetcher.requests.get", return_value=_make_raw_resp(_SAMPLE_CHANGELOG)):
+        result = fetch_changelog_releases("owner", "repo")
+    dates = [r["published_at"] for r in result if r["tag_name"] != HISTORICAL_TAG]
+    assert dates == sorted(dates)
+
+
+def test_changelog_since_skips_historical_and_old_releases() -> None:
+    with patch("src.fetcher.requests.get", return_value=_make_raw_resp(_SAMPLE_CHANGELOG)):
+        result = fetch_changelog_releases("owner", "repo", since="2026-01-10T00:00:00+00:00")
+    tags = [r["tag_name"] for r in result]
+    assert HISTORICAL_TAG not in tags
+    assert "2.0.0-preview.9" not in tags
+    assert "2.0.0-preview.10" in tags
+
+
+def test_changelog_raises_on_api_error() -> None:
+    resp = MagicMock()
+    resp.ok = False
+    resp.status_code = 404
+    resp.text = "Not Found"
+    with patch("src.fetcher.requests.get", return_value=resp):
+        with pytest.raises(GitHubFetchError) as exc:
+            fetch_changelog_releases("owner", "repo")
+    assert exc.value.status == 404
