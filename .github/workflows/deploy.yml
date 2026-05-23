@@ -5,27 +5,6 @@ on:
     branches: [main]
 
 jobs:
-  deploy-pages:
-    name: Deploy Cloudflare Pages
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: npm
-
-      - run: npm ci
-      - run: npx vite build
-
-      - name: Deploy to Cloudflare Pages
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy dist/ --project-name=git-release --commit-dirty=true
-
   deploy-email-function:
     name: Deploy Cloud Function (email-digest)
     runs-on: ubuntu-latest
