@@ -91,5 +91,7 @@ def _handle_trigger(request: Request) -> Response:
     except Exception:
         github_token = None
 
-    result = run_pipeline(s3, R2_BUCKET, mistral_key, github_token, llm_provider="mistral", llm_delay_s=1.2)
+    result = run_pipeline(
+        s3, R2_BUCKET, mistral_key, github_token, llm_provider="mistral", llm_delay_s=1.2
+    )
     return _json(result)

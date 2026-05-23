@@ -96,7 +96,13 @@ def run_pipeline(
                 releases = get_new_releases(owner, name, cursor, github_token)
                 if minor_only:
                     from src.semver import parse_semver
-                    releases = [r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0 and parse_semver(str(r.get("tag_name", ""))).minor > 0]
+
+                    releases = [
+                        r
+                        for r in releases
+                        if parse_semver(str(r.get("tag_name", ""))).patch == 0
+                        and parse_semver(str(r.get("tag_name", ""))).minor > 0
+                    ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 
             new_count = 0

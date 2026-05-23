@@ -157,7 +157,9 @@ def write_digest_json(
     s3.put_object(
         Bucket=bucket,
         Key="manifest.json",
-        Body=json.dumps({"digest": digest_key, "generated_at": datetime.now(timezone.utc).isoformat()}).encode(),
+        Body=json.dumps(
+            {"digest": digest_key, "generated_at": datetime.now(timezone.utc).isoformat()}
+        ).encode(),
         ContentType="application/json",
         CacheControl="no-cache, must-revalidate",
     )

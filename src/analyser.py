@@ -5,7 +5,6 @@ import logging
 import time
 
 import requests
-from openai import OpenAI
 from pydantic import BaseModel, ValidationError
 
 from src.config import (
@@ -67,7 +66,7 @@ class AuthError(Exception):
 def _call_openai_compat(
     prompt: str, api_key: str, base_url: str, model: str, timeout: float
 ) -> str:
-    from openai import AuthenticationError
+    from openai import AuthenticationError, OpenAI
 
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
     try:
