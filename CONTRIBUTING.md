@@ -22,7 +22,7 @@ All merges go through pull request. Direct pushes to `main` are not permitted.
 |---|---|---|
 | Feature | `feat/<short-description>` | `feat/slack-notifications` |
 | Bug fix | `fix/<short-description>` | `fix/cursor-overflow` |
-| Chore / infra | `chore/<short-description>` | `chore/upgrade-groq-sdk` |
+| Chore / infra | `chore/<short-description>` | `chore/upgrade-mistral-sdk` |
 | Docs | `docs/<short-description>` | `docs/deployment-guide` |
 
 ---

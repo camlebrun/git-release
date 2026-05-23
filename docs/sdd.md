@@ -1,3 +1,4 @@
+
 # Specification-Driven Development (SDD)
 
 This project was built using **Specification-Driven Development** — a methodology where the full specification is written and validated *before* any implementation begins.
