@@ -90,8 +90,22 @@ def _handle_trigger(request: Request) -> Response:
         github_token: str | None = get_secret(GCP_PROJECT, "GITHUB_TOKEN")
     except Exception:
         github_token = None
+    try:
+        gmail_address: str | None = get_secret(GCP_PROJECT, "GMAIL_ADDRESS")
+        gmail_app_password: str | None = get_secret(GCP_PROJECT, "GMAIL_APP_PASSWORD")
+        notify_email: str | None = get_secret(GCP_PROJECT, "NOTIFY_EMAIL")
+    except Exception:
+        gmail_address = gmail_app_password = notify_email = None
 
     result = run_pipeline(
-        s3, R2_BUCKET, mistral_key, github_token, llm_provider="mistral", llm_delay_s=1.2
+        s3,
+        R2_BUCKET,
+        mistral_key,
+        github_token,
+        llm_provider="mistral",
+        llm_delay_s=1.2,
+        gmail_address=gmail_address,
+        gmail_app_password=gmail_app_password,
+        notify_email=notify_email,
     )
     return _json(result)
