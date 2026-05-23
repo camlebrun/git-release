@@ -9,7 +9,7 @@ from typing import Any
 
 import requests as _http
 
-from src.analyser import AuthError, analyse_dbt_package_release, analyse_release
+from src.analyser import analyse_dbt_package_release, analyse_release
 from src.digest import get_digest
 from src.fetcher import backfill_releases, fetch_readme, get_new_releases
 from src.security_advisories import analyse_advisory, fetch_advisories
@@ -33,7 +33,7 @@ _REPOS_PATH = Path(__file__).parent.parent / "repos.json"
 
 
 def _call_email_function(url: str, payload: dict[str, Any]) -> None:
-    """POST to email Cloud Function with OIDC token for service-to-service auth."""
+    """POST to the email Cloud Function with OIDC token for service-to-service auth."""
     try:
         import google.auth.transport.requests
         import google.oauth2.id_token
@@ -104,26 +104,24 @@ def _is_stale(releases: list[dict[str, Any]]) -> bool:
 def _should_store_dbt_release(
     analysis: dict[str, Any], release: dict[str, Any], all_patches: bool = False
 ) -> bool:
-    """For dbt packages: store patches only if prod-breaking; always store minor/major.
-    Set all_patches=True to bypass the prod-breaking filter for a repo."""
+    """For dbt packages: store patches only if prod-breaking; always store minor/major."""
     sv = parse_semver(str(release.get("tag_name", "")))
     if sv.valid and sv.patch > 0 and not all_patches:
         return bool(analysis.get("is_prod_breaking_bug", False))
     return True
 
 
-def run_pipeline(
+def _process_repos(
     s3: Any,
     bucket: str,
+    repos: list[dict[str, str]],
     llm_key: str,
-    github_token: str | None = None,
-    llm_provider: str = "groq",
-    llm_delay_s: float = 0.0,
-    email_function_url: str | None = None,
-    use_heuristics: bool = False,
+    github_token: str | None,
+    llm_delay_s: float,
+    email_function_url: str | None,
+    use_heuristics: bool,
 ) -> dict[str, Any]:
-    run_start = datetime.now(timezone.utc).isoformat()
-    repos = load_repos()
+    """Phase 1 — fetch, analyse, and store releases for every configured repo."""
     repo_status: dict[str, Any] = {}
 
     for repo_cfg in repos:
@@ -138,6 +136,7 @@ def run_pipeline(
         is_deprecated = bool(repo_cfg.get("deprecated", False))
         deprecated_notice = repo_cfg.get("deprecated_notice")
         owner, name = repo.split("/", 1)
+
         try:
             cursor = get_cursor(s3, bucket, owner, name)
             if cursor is None:
@@ -154,7 +153,9 @@ def run_pipeline(
                 releases = get_new_releases(owner, name, cursor, github_token)
                 if minor_only and not is_dbt_package:
                     releases = [
-                        r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0
+                        r
+                        for r in releases
+                        if parse_semver(str(r.get("tag_name", ""))).patch == 0
                     ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 
@@ -171,23 +172,17 @@ def run_pipeline(
 
                 if llm_delay_s > 0 and new_count > 0:
                     time.sleep(llm_delay_s)
-                try:
-                    if is_dbt_package:
-                        analysis, error = analyse_dbt_package_release(
-                            {**release, "repo": repo},
-                            readme,
-                            stale=stale,
-                            use_heuristics=use_heuristics,
-                            api_key=llm_key,
-                            provider=llm_provider,
-                        )
-                    else:
-                        analysis, error = analyse_release(
-                            {**release, "repo": repo}, llm_key, llm_provider
-                        )
-                except AuthError as e:
-                    logger.error("❌ Auth error — stopping pipeline: %s", e)
-                    raise
+
+                if is_dbt_package:
+                    analysis, error = analyse_dbt_package_release(
+                        {**release, "repo": repo},
+                        readme,
+                        stale=stale,
+                        use_heuristics=use_heuristics,
+                        api_key=llm_key,
+                    )
+                else:
+                    analysis, error = analyse_release({**release, "repo": repo}, llm_key)
 
                 if analysis is None:
                     logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
@@ -199,14 +194,7 @@ def run_pipeline(
                     continue
 
                 record = _build_record(
-                    release,
-                    repo,
-                    analysis,
-                    error,
-                    [],
-                    group,
-                    is_deprecated,
-                    deprecated_notice,
+                    release, repo, analysis, error, [], group, is_deprecated, deprecated_notice
                 )
                 put_release(s3, bucket, record)
                 new_count += 1
@@ -226,20 +214,23 @@ def run_pipeline(
                     {"error": str(e), "repo": repo},
                 )
 
-    run_status = {
-        "ran_at": datetime.now(timezone.utc).isoformat(),
-        "repos": repo_status,
-    }
-    set_run_status(s3, bucket, run_status)
+    return repo_status
 
-    # Fetch + analyse + store advisories per repo
+
+def _process_advisories(
+    s3: Any,
+    bucket: str,
+    repos: list[dict[str, str]],
+    llm_key: str,
+    github_token: str | None,
+) -> None:
+    """Phase 2 — fetch and LLM-analyse security advisories for every repo."""
     logger.info("Fetching security advisories...")
     for repo_cfg in repos:
         repo = repo_cfg["repo"]
         owner, name = repo.split("/", 1)
         all_repo_advisories = fetch_advisories(owner, name, github_token)
 
-        # Load existing stored advisories to merge (cursor-based update)
         existing = {
             a["ghsa_id"]: a
             for a in (read_all_advisories(s3, bucket) or [])
@@ -251,12 +242,10 @@ def run_pipeline(
         for adv in all_repo_advisories:
             ghsa = adv.get("ghsa_id", "")
             updated_at = adv.get("updated_at") or ""
-            # Skip if already analysed and not updated since cursor
             if ghsa in existing and cursor and updated_at <= cursor:
                 adv["analysis"] = existing[ghsa].get("analysis")
                 continue
-            # Run LLM analysis on new/updated advisories
-            adv["analysis"] = analyse_advisory(adv, llm_key, llm_provider)
+            adv["analysis"] = analyse_advisory(adv, llm_key)
             updated = True
             logger.info("[%s] advisory analysed: %s", repo, ghsa)
 
@@ -267,13 +256,14 @@ def run_pipeline(
                 set_advisory_cursor(s3, bucket, owner, name, latest)
         logger.info("[%s] %d advisories stored", repo, len(all_repo_advisories))
 
-    # Read all per-repo advisories and build versioned digest + manifest
+
+def _build_and_clean_digest(s3: Any, bucket: str) -> tuple[list[dict[str, Any]], str]:
+    """Phase 3 — write versioned digest JSON and remove stale digest files."""
     all_advisories = read_all_advisories(s3, bucket)
     all_records = get_digest(s3, bucket, limit=500)
     digest_key = write_digest_json(s3, bucket, all_records, all_advisories)
     logger.info("%s: %d releases, %d advisories", digest_key, len(all_records), len(all_advisories))
 
-    # Clean up old digest files (keep only current)
     paginator = s3.get_paginator("list_objects_v2")
     old_digests = []
     for page in paginator.paginate(Bucket=bucket, Prefix="digest-"):
@@ -284,12 +274,36 @@ def run_pipeline(
         s3.delete_objects(Bucket=bucket, Delete={"Objects": old_digests})
         logger.info("Cleaned %d old digest(s)", len(old_digests))
 
-    # Call email Cloud Function if new releases were found
+    return all_records, digest_key
+
+
+def run_pipeline(
+    s3: Any,
+    bucket: str,
+    llm_key: str,
+    github_token: str | None = None,
+    llm_delay_s: float = 0.0,
+    email_function_url: str | None = None,
+    use_heuristics: bool = False,
+) -> dict[str, Any]:
+    run_start = datetime.now(timezone.utc).isoformat()
+    repos = load_repos()
+
+    repo_status = _process_repos(
+        s3, bucket, repos, llm_key, github_token, llm_delay_s, email_function_url, use_heuristics
+    )
+    set_run_status(s3, bucket, {"ran_at": datetime.now(timezone.utc).isoformat(), "repos": repo_status})
+
+    _process_advisories(s3, bucket, repos, llm_key, github_token)
+
+    all_records, _ = _build_and_clean_digest(s3, bucket)
+
     if email_function_url:
-        new_records = [r for r in all_records if r.get("fetched_at", "") >= run_start]
+        # ISO8601 sorts lexicographically — valid comparison for UTC timestamps
+        new_records = [r for r in all_records if str(r.get("fetched_at", "")) >= run_start]
         if new_records:
             _call_email_function(email_function_url, {"releases": new_records})
             logger.info("Email function called: %d releases", len(new_records))
 
     logger.info("Pipeline complete: %s", repo_status)
-    return run_status
+    return {"ran_at": run_start, "repos": repo_status}

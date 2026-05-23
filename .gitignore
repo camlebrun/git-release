@@ -14,3 +14,4 @@ node_modules/
 public/digest.json
 cloudbuild-trigger.yaml
 new_front/
+scripts/

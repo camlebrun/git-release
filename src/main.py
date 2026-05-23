@@ -25,24 +25,25 @@ def main() -> None:
         account_id=get_secret(GCP_PROJECT, "R2_ACCOUNT_ID"),
     )
 
-    mistral_key = get_secret(GCP_PROJECT, "MISTRAL_API_KEY")
+    llm_key = get_secret(GCP_PROJECT, "MISTRAL_API_KEY")
 
     try:
         github_token: str | None = get_secret(GCP_PROJECT, "GITHUB_TOKEN")
     except Exception:
+        logger.warning("GITHUB_TOKEN not in Secret Manager — unauthenticated GitHub requests (60 req/hr limit)")
         github_token = None
 
     try:
         email_function_url: str | None = get_secret(GCP_PROJECT, "EMAIL_FUNCTION_URL")
     except Exception:
+        logger.warning("EMAIL_FUNCTION_URL not in Secret Manager — email notifications disabled")
         email_function_url = None
 
     result = run_pipeline(
         s3,
         R2_BUCKET,
-        mistral_key,
+        llm_key,
         github_token,
-        llm_provider="mistral",
         llm_delay_s=1.2,
         email_function_url=email_function_url,
     )
