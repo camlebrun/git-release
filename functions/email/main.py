@@ -124,11 +124,11 @@ def _send(subject: str, html: str) -> None:
     msg["Subject"] = subject
     msg["From"] = gmail_address
     msg["To"] = notify_email
-    msg.attach(MIMEText(html, "html"))
+    msg.attach(MIMEText(html, "html", "utf-8"))
 
     with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
         server.login(gmail_address, gmail_app_password)
-        server.sendmail(gmail_address, notify_email, msg.as_string())
+        server.send_message(msg)
 
 
 @functions_framework.http
@@ -140,7 +140,7 @@ def send_email(request: Request) -> Response:
         if path == "/fail":
             error = body.get("error", "Unknown error")
             repo = body.get("repo")
-            _send("⚠ StackRadar — Pipeline failure", _fail_html(error, repo))
+            _send("[StackRadar] Pipeline failure", _fail_html(error, repo))
             logger.info("Fail email sent for repo=%s", repo)
             return Response(json.dumps({"sent": "fail"}), status=200, mimetype="application/json")
 
@@ -150,7 +150,7 @@ def send_email(request: Request) -> Response:
 
         count = len(releases)
         _send(
-            f"⬡ {count} new release{'s' if count > 1 else ''} — StackRadar",
+            f"[StackRadar] {count} new release{'s' if count > 1 else ''}",
             _build_html(releases),
         )
         logger.info("Digest email sent: %d releases", count)
