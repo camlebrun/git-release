@@ -11,20 +11,20 @@ logger = logging.getLogger(__name__)
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
-_SEV_COLOR = {
-    "critical": "#ef4444",
-    "high": "#f97316",
-    "medium": "#eab308",
-    "low": "#22c55e",
-    "none": "#6b7280",
+_SEV_BG = {
+    "critical": "#fee2e2",
+    "high": "#fff4ed",
+    "medium": "#fffbeb",
+    "low": "#eff6ff",
+    "none": "#f3f4f6",
 }
 
-_SEV_BG = {
-    "critical": "#450a0a",
-    "high": "#431407",
-    "medium": "#422006",
-    "low": "#052e16",
-    "none": "#18181b",
+_SEV_FG = {
+    "critical": "#dc2626",
+    "high": "#ea580c",
+    "medium": "#d97706",
+    "low": "#2563eb",
+    "none": "#6b7280",
 }
 
 
@@ -37,33 +37,33 @@ def _render_card(r: dict[str, Any]) -> str:
     changes_block = ""
     if changes:
         items = "".join(
-            f'<li style="margin:4px 0;color:#a1a1aa;font-size:13px;">{c}</li>'
-            for c in changes
+            f'<li style="margin:4px 0;color:#6b7280;font-size:13px;">{c}</li>' for c in changes
         )
         changes_block = f'<ul style="margin:0;padding-left:16px;">{items}</ul>'
 
-    border = _SEV_COLOR.get(sev, "#3f3f46")
     tpl = (_TEMPLATES / "email_card.html").read_text()
-    return tpl.replace("{{bg}}", _SEV_BG.get(sev, "#18181b")) \
-              .replace("{{border}}", border) \
-              .replace("{{border_alpha}}", border + "40") \
-              .replace("{{sev_color}}", border) \
-              .replace("{{severity}}", sev) \
-              .replace("{{repo_owner}}", repo.split("/")[0]) \
-              .replace("{{repo_name}}", repo.split("/")[-1]) \
-              .replace("{{tag}}", str(r.get("tag", ""))) \
-              .replace("{{summary}}", a.get("summary", "No summary available.")) \
-              .replace("{{changes_block}}", changes_block) \
-              .replace("{{url}}", str(r.get("html_url", "#")))
+    return (
+        tpl.replace("{{sev_bg}}", _SEV_BG.get(sev, "#f3f4f6"))
+        .replace("{{sev_fg}}", _SEV_FG.get(sev, "#6b7280"))
+        .replace("{{severity}}", sev)
+        .replace("{{repo_owner}}", repo.split("/")[0])
+        .replace("{{repo_name}}", repo.split("/")[-1])
+        .replace("{{tag}}", str(r.get("tag", "")))
+        .replace("{{summary}}", a.get("summary", "No summary available."))
+        .replace("{{changes_block}}", changes_block)
+        .replace("{{url}}", str(r.get("html_url", "#")))
+    )
 
 
 def _build_html(releases: list[dict[str, Any]]) -> str:
     count = len(releases)
     cards = "".join(_render_card(r) for r in releases)
     tpl = (_TEMPLATES / "email_digest.html").read_text()
-    return tpl.replace("{{count}}", str(count)) \
-              .replace("{{count_plural}}", "s" if count > 1 else "") \
-              .replace("{{cards}}", cards)
+    return (
+        tpl.replace("{{count}}", str(count))
+        .replace("{{count_plural}}", "s" if count > 1 else "")
+        .replace("{{cards}}", cards)
+    )
 
 
 def send_release_digest(

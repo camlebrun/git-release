@@ -18,7 +18,7 @@ steps:
     args:
       - build
       - -t
-      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$COMMIT_SHA
+      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
       - .
 
   # Push to Artifact Registry
@@ -27,7 +27,7 @@ steps:
     waitFor: [build]
     args:
       - push
-      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$COMMIT_SHA
+      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
 
   # Deploy to Cloud Run
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
@@ -38,7 +38,7 @@ steps:
       - run
       - deploy
       - git-release
-      - --image=europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$COMMIT_SHA
+      - --image=europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
       - --region=europe-west9
       - --platform=managed
       - --allow-unauthenticated
@@ -48,7 +48,7 @@ steps:
       - --project=git-release-496817
 
 images:
-  - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$COMMIT_SHA
+  - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
 
 options:
   logging: CLOUD_LOGGING_ONLY
