@@ -1,5 +1,5 @@
 GCP_PROJECT = "git-release-496817"
-GCP_REGION = "us-central1"
+GCP_REGION = "europe-west9"
 
 R2_BUCKET = "git-release-releases"
 
@@ -7,9 +7,9 @@ MAX_RELEASES_PER_RUN = 50
 BACKFILL_NON_SEMVER = 20
 DIGEST_DEFAULT_LIMIT = 20
 DIGEST_MAX_LIMIT = 100
-LLM_MAX_TOKENS = 1024
-GROQ_MODEL = "llama-3.3-70b-versatile"
+LLM_MAX_TOKENS = 4096
+MISTRAL_MODEL = "mistral-small-latest"
+
 GITHUB_API_BASE = "https://api.github.com"
-GROQ_TIMEOUT_S = 10
 GITHUB_TIMEOUT_S = 10
 GITHUB_RETRY_MAX = 3

@@ -1,0 +1,32 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-email-function:
+    name: Deploy Cloud Function (email-digest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Deploy Cloud Function
+        run: |
+          gcloud functions deploy email-digest \
+            --gen2 \
+            --runtime=python312 \
+            --region=europe-west9 \
+            --source=functions/email \
+            --entry-point=send_email \
+            --trigger-http \
+            --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com \
+            --memory=512MB \
+            --timeout=120s \
+            --project=git-release-496817

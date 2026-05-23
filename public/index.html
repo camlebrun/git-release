@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StackRadar</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <!-- Row 1: Title + Search -->
+    <div class="header-row-1">
+      <h1>📡 StackRadar</h1>
+      <input type="search" id="search" placeholder="Search..." autocomplete="off" />
+    </div>
+
+    <!-- Row 2: Tabs + Filters inline -->
+    <div class="header-row-2">
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" data-tab="digest">
+          Release Notes <span class="badge" id="digest-count"></span>
+        </button>
+        <button class="tab" data-tab="security">
+          Security <span class="badge badge-cve" id="advisory-count"></span>
+        </button>
+        <a class="tab" href="/dbt-packages/">dbt Packages</a>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Severity chips -->
+      <div class="inline-filters">
+        <button class="chip active" data-sev="all">All</button>
+        <button class="chip" data-sev="critical">critical</button>
+        <button class="chip" data-sev="high">high</button>
+        <button class="chip" data-sev="medium">medium</button>
+        <button class="chip" data-sev="low">low</button>
+        <button class="chip" data-sev="none">none</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Group chips -->
+      <div class="inline-filters" id="repo-filters-inline"></div>
+      <!-- Sub-repo chips (shown when a group is selected) -->
+      <div class="inline-filters hidden" id="repo-filters-sub"></div>
+    </div>
+  </header>
+
+  <main>
+    <section id="tab-digest" class="tab-panel active">
+      <div id="grid" class="bento-grid"></div>
+      <p id="empty-digest" class="empty-state hidden">No releases match your filter.</p>
+      <p id="loading" class="loading">Loading releases…</p>
+    </section>
+
+    <section id="tab-security" class="tab-panel hidden">
+      <div id="advisory-list" class="advisory-grid"></div>
+      <p id="empty-advisories" class="empty-state hidden">No security advisories found.</p>
+    </section>
+  </main>
+
+  <!-- Release detail drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+      <div class="drawer-meta">
+        <span id="drawer-repo" class="card-repo"></span>
+        <span id="drawer-sev" class="sev"></span>
+      </div>
+      <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <h2 id="drawer-title" class="drawer-title"></h2>
+      <p id="drawer-date" class="card-date"></p>
+      <p id="drawer-summary" class="drawer-summary"></p>
+      <div id="drawer-changes-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Key changes</h3>
+        <ul id="drawer-changes" class="card-changes drawer-changes"></ul>
+      </div>
+      <div id="drawer-tags-wrap" class="drawer-section hidden">
+        <div id="drawer-tags" class="tags"></div>
+      </div>
+      <div id="drawer-cve-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">CVE references</h3>
+        <div id="drawer-cves" class="drawer-cves"></div>
+      </div>
+      <a id="drawer-link" class="drawer-link" target="_blank" rel="noopener">
+        View on GitHub →
+      </a>
+    </div>
+  </aside>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

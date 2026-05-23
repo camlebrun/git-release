@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dbt Packages · StackRadar</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-row-1">
+      <div style="display:flex;align-items:center;gap:16px">
+        <a href="/" class="back-link">← StackRadar</a>
+        <h1>dbt Packages</h1>
+      </div>
+      <input type="search" id="search" placeholder="Search packages…" autocomplete="off" />
+    </div>
+
+    <div class="header-row-2">
+      <div class="inline-filters" id="pkg-type-filters">
+        <button class="chip active" data-pkgtype="all">All <span class="badge" id="pkg-count"></span></button>
+        <button class="chip" data-pkgtype="utils">Utils</button>
+        <button class="chip" data-pkgtype="data-quality">Data Quality</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="inline-filters" id="pkg-name-filters"></div>
+
+      <div class="divider" id="pkg-name-divider"></div>
+
+      <button class="chip active" id="pkg-latest-toggle">Latest only</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="pkg-rules-banner">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>
+        <strong>What's shown:</strong>
+        stable releases only · minor &amp; major always · patches only if prod-breaking ·
+        one card per package by default (toggle <em>Latest only</em> to see history)
+      </span>
+    </div>
+    <div id="pkg-grid" class="bento-grid"></div>
+    <p id="empty-pkg" class="empty-state hidden">No packages match your filter.</p>
+    <p id="loading" class="loading">Loading packages…</p>
+  </main>
+
+  <!-- Detail drawer (reused from main app) -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+      <div class="drawer-meta">
+        <span id="drawer-repo" class="card-repo"></span>
+        <span id="drawer-sev" class="sev"></span>
+      </div>
+      <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <h2 id="drawer-title" class="drawer-title"></h2>
+      <p id="drawer-date" class="card-date"></p>
+      <div id="drawer-deprecated" class="drawer-deprecated hidden">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M8 2L14.9 14H1.1L8 2Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+          <path d="M8 6v4M8 12v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <p id="drawer-deprecated-text"></p>
+      </div>
+      <div id="drawer-notice" class="drawer-notice hidden">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path d="M13 3A7 7 0 1 0 14.5 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M14.5 3v2.5H12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <p id="drawer-notice-text"></p>
+      </div>
+      <div id="drawer-purpose" class="drawer-purpose hidden">
+        <svg class="purpose-icon" width="14" height="14" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <p id="drawer-purpose-text"></p>
+      </div>
+      <p id="drawer-summary" class="drawer-summary"></p>
+      <div id="drawer-changes-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Key changes</h3>
+        <ul id="drawer-changes" class="card-changes drawer-changes"></ul>
+      </div>
+      <div id="drawer-tags-wrap" class="drawer-section hidden">
+        <div id="drawer-tags" class="tags"></div>
+      </div>
+      <div id="drawer-cve-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">CVE references</h3>
+        <div id="drawer-cves" class="drawer-cves"></div>
+      </div>
+      <a id="drawer-link" class="drawer-link" target="_blank" rel="noopener">
+        View on GitHub →
+      </a>
+    </div>
+  </aside>
+
+  <div id="pkg-global-tooltip" class="pkg-global-tooltip" aria-hidden="true"></div>
+  <script type="module" src="/dbt-packages/app.js"></script>
+</body>
+</html>

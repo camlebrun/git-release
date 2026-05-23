@@ -1,0 +1,18 @@
+import { resolve } from 'path';
+
+export default {
+  root: 'public',
+  server: {
+    port: 3000,
+  },
+  build: {
+    outDir: '../dist',
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: resolve('public', 'index.html'),
+        dbtPackages: resolve('public', 'dbt-packages', 'index.html'),
+      },
+    },
+  },
+}

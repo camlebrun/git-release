@@ -5,6 +5,13 @@ __pycache__/
 .venv/
 venv/
 dist/
+node_modules/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.DS_Store
+.vite/
+public/digest.json
+cloudbuild-trigger.yaml
+new_front/
+scripts/

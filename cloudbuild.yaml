@@ -1,0 +1,55 @@
+steps:
+  # Run tests
+  - name: python:3.12-slim
+    id: test
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        pip install -r requirements-dev.txt -q
+        ruff check src tests
+        black --check src tests
+        pytest --tb=short -q
+
+  # Build Docker image
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    waitFor: [test]
+    args:
+      - build
+      - -t
+      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
+      - .
+
+  # Push to Artifact Registry
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    waitFor: [build]
+    args:
+      - push
+      - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
+
+  # Deploy Cloud Run Job
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    id: deploy
+    waitFor: [push]
+    entrypoint: gcloud
+    args:
+      - run
+      - jobs
+      - deploy
+      - git-release
+      - --image=europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
+      - --region=europe-west9
+      - --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com
+      - --memory=512Mi
+      - --cpu=1
+      - --task-timeout=900
+      - --max-retries=0
+      - --project=git-release-496817
+
+images:
+  - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
+
+options:
+  logging: CLOUD_LOGGING_ONLY

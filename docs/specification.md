@@ -1,4 +1,4 @@
-# Specification — GitHub Release Digest
+# Specification — StackRadar
 
 > What the system does and why. No implementation details.
 > Tests and acceptance criteria are defined here first.
@@ -29,15 +29,16 @@ Developers following multiple open-source projects lose track of releases. Readi
 
 **In scope:**
 - Fetching releases from a configurable list of public GitHub repos
-- Storing raw release data as JSON (one record per release)
-- Analysing each release with a Groq LLM: summary, key changes, CVE detection, severity tag
-- A daily scheduled cloud function that only processes new releases (incremental)
+- Storing raw release data as JSON (one record per release) in Cloudflare R2
+- Analysing each release with the Mistral LLM: summary, key changes, CVE detection, severity tag
+- A daily scheduled Cloud Run Job that only processes new releases (incremental)
 - A static bento-style web page that displays the digest
+- GitHub Security Advisories fetch + LLM analysis per tracked repo
+- Daily email digest via a separate Cloud Function gen2
 
 **Out of scope (v1):**
 - Private GitHub repos
 - Non-GitHub sources (GitLab, npm, etc.)
-- Email / Slack notifications
 - User accounts or saved preferences
 - Real-time updates (WebSocket / SSE)
 
@@ -57,13 +58,13 @@ Developers following multiple open-source projects lose track of releases. Readi
 - Adding a new entry to `repos.json` automatically triggers the backfill on the next run (no code change needed).
 
 ### FR-03 — Release storage (raw)
-- Each release is stored in **R2** as object `{owner}/{repo}/{tag}.json`.
-- Cursors and run status are stored in **KV** (small, hot metadata only).
+- Each release is stored in **R2** as object `releases/{owner}/{repo}/{tag}.json`.
+- Cursors (`meta/cursor/{owner}/{repo}.json`) and run status (`meta/run_status.json`) are also stored in R2 under the `meta/` prefix.
 - The R2 object value is a JSON blob containing the full GitHub release payload plus metadata fields (see §1.6).
 - If the R2 object already exists, the record is skipped (idempotent).
 
 ### FR-04 — LLM analysis
-- For each newly stored release, one Groq API call is made.
+- For each newly stored release, one Mistral API call is made (`mistral-small-latest`, max 4096 output tokens).
 - The prompt requests: **summary** (2–4 sentences), **key_changes** (bullet list ≤ 8 items), **cve_references** (array of CVE IDs found in the body), **severity** (`none | low | medium | high | critical`), **tags** (array of inferred labels: `breaking`, `security`, `performance`, `bug-fix`, `feature`, `deprecation`).
 - The LLM response is parsed as JSON and merged into the stored release record.
 - If LLM parsing fails, the release is stored with `analysis: null` and an `analysis_error` field.
@@ -72,25 +73,36 @@ Developers following multiple open-source projects lose track of releases. Readi
 - After all releases for a repo are processed, the cursor key `cursor:{owner}/{repo}` is updated to the `published_at` of the latest release successfully stored.
 
 ### FR-06 — Scheduled trigger
-- The cloud function runs automatically once per day at 06:00 UTC via a cron trigger.
-- It can also be triggered manually via a `GET /trigger` HTTP endpoint (protected by a shared secret header `X-Trigger-Secret`).
+- The Cloud Run Job runs automatically once per day at 06:00 UTC via Cloud Scheduler.
+- The job runs to completion and exits; there is no HTTP trigger on the job itself.
 
 ### FR-07 — Digest API
 - A `GET /digest` endpoint returns a JSON array of the most recent **N** analysed releases across all tracked repos (default N=20, max N=100, configurable via `?limit=`).
 - Each item in the array is the full stored record (raw + analysis).
 - Results are sorted by `published_at` descending.
 
-### FR-08 — Frontend bento page
+### FR-08b — Dependency CVE tab
+- The website has a second tab **"Dependency CVEs"** alongside the main digest.
+- For each tracked repo and release, the LLM analysis already extracts `cve_references` from the release body.
+- The CVE tab aggregates all CVE IDs across **all analysed releases** and displays them in a searchable table with columns: CVE ID, repo, version, severity, summary excerpt.
+- Rows are sorted by severity (`critical` → `high` → `medium` → `low` → `none`), then by `published_at` desc.
+- Each CVE ID is a link to `https://nvd.nist.gov/vuln/detail/<CVE-ID>` (NVD) opening in a new tab.
+- The tab shows a badge with the total count of unique CVE IDs found.
+- Client-side filter input allows filtering by CVE ID, repo name, or severity.
+- If no CVEs are found across all releases, the tab displays "No CVEs detected yet."
+
+### FR-09 — Frontend bento page
 - A static HTML/JS/CSS page fetches `/digest` on load and renders cards in a CSS Grid bento layout.
+- Two tabs at the top: **"Digest"** (default) and **"Dependency CVEs"** (see FR-08b).
 - Each card shows: repo name, version tag, published date, severity badge, summary, key changes list, CVE references (if any), tags.
 - Severity badge colour coding: `none`=grey, `low`=blue, `medium`=yellow, `high`=orange, `critical`=red.
 - The page has a search/filter input that filters visible cards client-side by repo name or tag.
 - Cards are responsive: full-width on mobile, 2-col on tablet, 3-col on desktop.
 
-### FR-09 — Error resilience
-- A single repo failure (GitHub API error, Groq error) must not abort the entire batch.
+### FR-10 — Error resilience
+- A single repo failure (GitHub API error, Mistral error) must not abort the entire batch.
 - Errors are logged with repo name and error message.
-- A `GET /health` endpoint returns `200 OK` with last run timestamp and per-repo status.
+- Run status (per-repo success/failure counts) is written to `meta/run_status.json` in R2 at the end of each run.
 
 ---
 
@@ -101,7 +113,7 @@ Developers following multiple open-source projects lose track of releases. Readi
 | NFR-01 | Scheduled run completes in under 30 s for ≤ 10 repos with ≤ 5 new releases each |
 | NFR-02 | Frontend page loads in under 2 s on a 4G connection |
 | NFR-03 | No secrets in any committed file |
-| NFR-04 | Worker must not exceed Cloudflare's 10 ms CPU time limit per request (subrequest I/O excluded) |
+| NFR-04 | Cloud Run Job must complete within 10 minutes for ≤ 20 tracked repos |
 | NFR-05 | All stored JSON is valid UTF-8 and parseable |
 
 ---
@@ -156,4 +168,4 @@ Developers following multiple open-source projects lose track of releases. Readi
 | AC-06b | Given a repo with non-semver tags and no cursor, then the most recent 20 releases are fetched as backfill |
 | AC-06c | Given `"owner/repo"` is added to `repos.json`, the next scheduled run backfills it without any code change |
 | AC-07 | Given `/trigger` is called without the correct secret header, then a 401 is returned |
-| AC-08 | Given 0 new releases since last run, when the function runs, then no Groq API calls are made |
+| AC-08 | Given 0 new releases since last run, when the job runs, then no Mistral API calls are made |

@@ -40,6 +40,15 @@ def test_get_secret_caches_on_second_call() -> None:
     assert client.access_secret_version.call_count == 1
 
 
+def test_env_var_fallback_skips_secret_manager() -> None:
+    client = _mock_client("should-not-be-used")
+    with patch("src.secrets.secretmanager.SecretManagerServiceClient", return_value=client):
+        with patch.dict("os.environ", {"MY_SECRET": "from-env"}):
+            result = get_secret("my-project", "MY_SECRET")
+    assert result == "from-env"
+    assert client.access_secret_version.call_count == 0
+
+
 def test_clear_cache_forces_refetch() -> None:
     client = _mock_client("value")
     with patch(
