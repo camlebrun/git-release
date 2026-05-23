@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 
-import functions_framework
-from flask import Request, Response
+from flask import Flask, Request, Response, request
 
 from src.config import (
     DIGEST_DEFAULT_LIMIT,
@@ -19,6 +19,8 @@ from src.store import get_run_status, get_s3_client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
 
 _CORS = {
     "Access-Control-Allow-Origin": "*",
@@ -44,26 +46,27 @@ def _get_s3() -> object:
     )
 
 
-@functions_framework.http
-def main(request: Request) -> Response:
+@app.route("/", defaults={"path": ""}, methods=["GET", "POST", "OPTIONS"])
+@app.route("/<path:path>", methods=["GET", "POST", "OPTIONS"])
+def handle(path: str) -> Response:
     if request.method == "OPTIONS":
         return Response("", status=204, headers=_CORS)
 
-    path = request.path.rstrip("/") or "/"
+    route = "/" + path.rstrip("/")
 
-    if path == "/digest":
+    if route == "/digest":
         return _handle_digest(request)
-    if path == "/health":
+    if route == "/health":
         return _handle_health(request)
-    if path == "/trigger":
+    if route == "/trigger":
         return _handle_trigger(request)
 
     return _json({"error": "Not Found"}, status=404)
 
 
-def _handle_digest(request: Request) -> Response:
+def _handle_digest(req: Request) -> Response:
     try:
-        limit = int(request.args.get("limit", DIGEST_DEFAULT_LIMIT))
+        limit = int(req.args.get("limit", DIGEST_DEFAULT_LIMIT))
     except ValueError:
         limit = DIGEST_DEFAULT_LIMIT
     limit = min(limit, DIGEST_MAX_LIMIT)
@@ -72,15 +75,15 @@ def _handle_digest(request: Request) -> Response:
     return _json(records)
 
 
-def _handle_health(request: Request) -> Response:
+def _handle_health(req: Request) -> Response:
     s3 = _get_s3()
     status = get_run_status(s3, R2_BUCKET) or {"ran_at": None, "repos": {}}
     return _json(status)
 
 
-def _handle_trigger(request: Request) -> Response:
+def _handle_trigger(req: Request) -> Response:
     expected = get_secret(GCP_PROJECT, "TRIGGER_SECRET")
-    provided = request.headers.get("X-Trigger-Secret", "")
+    provided = req.headers.get("X-Trigger-Secret", "")
     if provided != expected:
         return _json({"error": "Unauthorized"}, status=401)
 
@@ -91,11 +94,9 @@ def _handle_trigger(request: Request) -> Response:
     except Exception:
         github_token = None
     try:
-        gmail_address: str | None = get_secret(GCP_PROJECT, "GMAIL_ADDRESS")
-        gmail_app_password: str | None = get_secret(GCP_PROJECT, "GMAIL_APP_PASSWORD")
-        notify_email: str | None = get_secret(GCP_PROJECT, "NOTIFY_EMAIL")
+        email_function_url: str | None = get_secret(GCP_PROJECT, "EMAIL_FUNCTION_URL")
     except Exception:
-        gmail_address = gmail_app_password = notify_email = None
+        email_function_url = None
 
     result = run_pipeline(
         s3,
@@ -104,8 +105,10 @@ def _handle_trigger(request: Request) -> Response:
         github_token,
         llm_provider="mistral",
         llm_delay_s=1.2,
-        gmail_address=gmail_address,
-        gmail_app_password=gmail_app_password,
-        notify_email=notify_email,
+        email_function_url=email_function_url,
     )
     return _json(result)
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)))

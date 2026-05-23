@@ -74,9 +74,7 @@ def run_pipeline(
     github_token: str | None = None,
     llm_provider: str = "groq",
     llm_delay_s: float = 0.0,
-    gmail_address: str | None = None,
-    gmail_app_password: str | None = None,
-    notify_email: str | None = None,
+    email_function_url: str | None = None,
 ) -> dict[str, Any]:
     run_start = datetime.now(timezone.utc).isoformat()
     repos = load_repos()
@@ -203,13 +201,21 @@ def run_pipeline(
         s3.delete_objects(Bucket=bucket, Delete={"Objects": old_digests})
         logger.info("Cleaned %d old digest(s)", len(old_digests))
 
-    # Send email digest if new releases were found
-    if gmail_address and gmail_app_password and notify_email:
-        from src.mailer import send_release_digest
-
+    # Call email Cloud Function if new releases were found
+    if email_function_url:
         new_records = [r for r in all_records if r.get("fetched_at", "") >= run_start]
         if new_records:
-            send_release_digest(new_records, gmail_address, gmail_app_password, notify_email)
+            try:
+                import requests as _requests
+
+                _requests.post(
+                    email_function_url,
+                    json={"releases": new_records},
+                    timeout=30,
+                )
+                logger.info("Email function called: %d releases", len(new_records))
+            except Exception as e:
+                logger.error("Email function call failed: %s", e)
 
     logger.info("Pipeline complete: %s", repo_status)
     return run_status
