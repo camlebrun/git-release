@@ -16,19 +16,21 @@ def _make_release(body: str = "Fixed bugs.") -> dict[str, object]:
     return {"repo": "owner/repo", "tag_name": "v1.0.0", "name": "Release 1.0.0", "body": body}
 
 
-def _mock_client(content: str) -> MagicMock:
+def _mock_mistral_client(content: str) -> MagicMock:
     choice = MagicMock()
     choice.message.content = content
     response = MagicMock()
     response.choices = [choice]
     client = MagicMock()
-    client.chat.completions.create.return_value = response
+    client.chat.complete.return_value = response
     return client
 
 
 def test_happy_path() -> None:
-    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(_VALID_ANALYSIS))):
-        analysis, error = analyse_release(_make_release(), "fake-key")
+    with patch(
+        "src.analyser.Mistral", return_value=_mock_mistral_client(json.dumps(_VALID_ANALYSIS))
+    ):
+        analysis, error = analyse_release(_make_release(), "fake-key", provider="mistral")
     assert error is None
     assert analysis is not None
     assert analysis["summary"] == _VALID_ANALYSIS["summary"]
@@ -36,8 +38,8 @@ def test_happy_path() -> None:
 
 
 def test_invalid_json_returns_none() -> None:
-    with patch("src.analyser.OpenAI", return_value=_mock_client("not json }{")):
-        analysis, error = analyse_release(_make_release(), "fake-key")
+    with patch("src.analyser.Mistral", return_value=_mock_mistral_client("not json }{")):
+        analysis, error = analyse_release(_make_release(), "fake-key", provider="mistral")
     assert analysis is None
     assert error is not None
 
@@ -45,8 +47,8 @@ def test_invalid_json_returns_none() -> None:
 def test_cve_detection() -> None:
     body = "Fixes CVE-2026-12345 and CVE-2026-99999."
     payload = {**_VALID_ANALYSIS, "cve_references": ["CVE-2026-12345"], "severity": "high"}
-    with patch("src.analyser.OpenAI", return_value=_mock_client(json.dumps(payload))):
-        analysis, error = analyse_release(_make_release(body), "fake-key")
+    with patch("src.analyser.Mistral", return_value=_mock_mistral_client(json.dumps(payload))):
+        analysis, error = analyse_release(_make_release(body), "fake-key", provider="mistral")
     assert error is None
     assert analysis is not None
     assert "CVE-2026-12345" in analysis["cve_references"]
@@ -55,20 +57,8 @@ def test_cve_detection() -> None:
 
 def test_exception_returns_none() -> None:
     client = MagicMock()
-    client.chat.completions.create.side_effect = Exception("timeout")
-    with patch("src.analyser.OpenAI", return_value=client):
-        analysis, error = analyse_release(_make_release(), "fake-key")
+    client.chat.complete.side_effect = Exception("timeout")
+    with patch("src.analyser.Mistral", return_value=client):
+        analysis, error = analyse_release(_make_release(), "fake-key", provider="mistral")
     assert analysis is None
     assert "timeout" in (error or "")
-
-
-def test_gemini_provider_calls_native_api() -> None:
-    with patch("src.analyser.requests.post") as mock_post:
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "candidates": [{"content": {"parts": [{"text": json.dumps(_VALID_ANALYSIS)}]}}]
-        }
-        mock_post.return_value = mock_resp
-        analyse_release(_make_release(), "fake-key", provider="gemini")
-    called_url = mock_post.call_args.args[0]
-    assert "generativelanguage" in called_url

@@ -1,95 +1,59 @@
+"""Cloud Run Job entry point — runs the release pipeline to completion."""
+
 from __future__ import annotations
 
-import json
 import logging
+import sys
 
-import functions_framework
-from flask import Request, Response
-
-from src.config import (
-    DIGEST_DEFAULT_LIMIT,
-    DIGEST_MAX_LIMIT,
-    GCP_PROJECT,
-    R2_BUCKET,
-)
-from src.digest import get_digest
+from src.config import GCP_PROJECT, R2_BUCKET
 from src.pipeline import run_pipeline
 from src.secrets import get_secret
-from src.store import get_run_status, get_s3_client
+from src.store import get_s3_client
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    datefmt="%H:%M:%S",
+)
 logger = logging.getLogger(__name__)
 
-_CORS = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Trigger-Secret",
-}
 
-
-def _json(data: object, status: int = 200) -> Response:
-    return Response(
-        json.dumps(data, default=str),
-        status=status,
-        mimetype="application/json",
-        headers=_CORS,
-    )
-
-
-def _get_s3() -> object:
-    return get_s3_client(
+def main() -> None:
+    s3 = get_s3_client(
         access_key=get_secret(GCP_PROJECT, "R2_ACCESS_KEY_ID"),
         secret_key=get_secret(GCP_PROJECT, "R2_SECRET_ACCESS_KEY"),
         account_id=get_secret(GCP_PROJECT, "R2_ACCOUNT_ID"),
     )
 
+    mistral_key = get_secret(GCP_PROJECT, "MISTRAL_API_KEY")
 
-@functions_framework.http
-def main(request: Request) -> Response:
-    if request.method == "OPTIONS":
-        return Response("", status=204, headers=_CORS)
-
-    path = request.path.rstrip("/") or "/"
-
-    if path == "/digest":
-        return _handle_digest(request)
-    if path == "/health":
-        return _handle_health(request)
-    if path == "/trigger":
-        return _handle_trigger(request)
-
-    return _json({"error": "Not Found"}, status=404)
-
-
-def _handle_digest(request: Request) -> Response:
-    try:
-        limit = int(request.args.get("limit", DIGEST_DEFAULT_LIMIT))
-    except ValueError:
-        limit = DIGEST_DEFAULT_LIMIT
-    limit = min(limit, DIGEST_MAX_LIMIT)
-    s3 = _get_s3()
-    records = get_digest(s3, R2_BUCKET, limit)
-    return _json(records)
-
-
-def _handle_health(request: Request) -> Response:
-    s3 = _get_s3()
-    status = get_run_status(s3, R2_BUCKET) or {"ran_at": None, "repos": {}}
-    return _json(status)
-
-
-def _handle_trigger(request: Request) -> Response:
-    expected = get_secret(GCP_PROJECT, "TRIGGER_SECRET")
-    provided = request.headers.get("X-Trigger-Secret", "")
-    if provided != expected:
-        return _json({"error": "Unauthorized"}, status=401)
-
-    s3 = _get_s3()
-    groq_key = get_secret(GCP_PROJECT, "GROQ_API_KEY")
     try:
         github_token: str | None = get_secret(GCP_PROJECT, "GITHUB_TOKEN")
     except Exception:
         github_token = None
 
-    result = run_pipeline(s3, R2_BUCKET, groq_key, github_token)
-    return _json(result)
+    try:
+        email_function_url: str | None = get_secret(GCP_PROJECT, "EMAIL_FUNCTION_URL")
+    except Exception:
+        email_function_url = None
+
+    result = run_pipeline(
+        s3,
+        R2_BUCKET,
+        mistral_key,
+        github_token,
+        llm_provider="mistral",
+        llm_delay_s=1.2,
+        email_function_url=email_function_url,
+    )
+
+    failed = [repo for repo, status in result["repos"].items() if not status["ok"]]
+    if failed:
+        logger.error("Failed repos: %s", failed)
+        sys.exit(1)
+
+    logger.info("Job complete: %s", result["repos"])
+
+
+if __name__ == "__main__":
+    main()

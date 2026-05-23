@@ -5,3 +5,4 @@ black==24.*
 ruff==0.*
 mypy==1.*
 isort==5.*
+bandit==1.*

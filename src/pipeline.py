@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+import requests as _http
+
 from src.analyser import AuthError, analyse_release
 from src.digest import get_digest
 from src.fetcher import backfill_releases, get_new_releases
@@ -27,6 +29,19 @@ from src.store import (
 logger = logging.getLogger(__name__)
 
 _REPOS_PATH = Path(__file__).parent.parent / "repos.json"
+
+
+def _call_email_function(url: str, payload: dict[str, Any]) -> None:
+    """POST to email Cloud Function with OIDC token for service-to-service auth."""
+    try:
+        import google.auth.transport.requests
+        import google.oauth2.id_token
+
+        auth_req = google.auth.transport.requests.Request()
+        token = google.oauth2.id_token.fetch_id_token(auth_req, url)  # type: ignore[no-untyped-call]
+        _http.post(url, json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=20)
+    except Exception as e:
+        logger.error("Email function call failed: %s", e)
 
 
 def load_repos() -> list[dict[str, str]]:
@@ -74,7 +89,9 @@ def run_pipeline(
     github_token: str | None = None,
     llm_provider: str = "groq",
     llm_delay_s: float = 0.0,
+    email_function_url: str | None = None,
 ) -> dict[str, Any]:
+    run_start = datetime.now(timezone.utc).isoformat()
     repos = load_repos()
     repo_status: dict[str, Any] = {}
 
@@ -96,7 +113,10 @@ def run_pipeline(
                 releases = get_new_releases(owner, name, cursor, github_token)
                 if minor_only:
                     from src.semver import parse_semver
-                    releases = [r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0 and parse_semver(str(r.get("tag_name", ""))).minor > 0]
+
+                    releases = [
+                        r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0
+                    ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 
             new_count = 0
@@ -117,6 +137,10 @@ def run_pipeline(
                     logger.error("❌ Auth error — stopping pipeline: %s", e)
                     raise  # propagate up, stop everything
 
+                if analysis is None:
+                    logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
+                    continue
+
                 record = _build_record(release, repo, analysis, error, [], group)
                 put_release(s3, bucket, record)
                 new_count += 1
@@ -130,6 +154,11 @@ def run_pipeline(
         except Exception as e:
             logger.error("[%s] pipeline error: %s", repo, e)
             repo_status[repo] = {"ok": False, "error": str(e)}
+            if email_function_url:
+                _call_email_function(
+                    email_function_url.rstrip("/") + "/fail",
+                    {"error": str(e), "repo": repo},
+                )
 
     run_status = {
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -188,6 +217,13 @@ def run_pipeline(
     if old_digests:
         s3.delete_objects(Bucket=bucket, Delete={"Objects": old_digests})
         logger.info("Cleaned %d old digest(s)", len(old_digests))
+
+    # Call email Cloud Function if new releases were found
+    if email_function_url:
+        new_records = [r for r in all_records if r.get("fetched_at", "") >= run_start]
+        if new_records:
+            _call_email_function(email_function_url, {"releases": new_records})
+            logger.info("Email function called: %d releases", len(new_records))
 
     logger.info("Pipeline complete: %s", repo_status)
     return run_status

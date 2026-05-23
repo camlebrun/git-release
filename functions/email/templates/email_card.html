@@ -1,0 +1,25 @@
+<div style="background:white;background-image:linear-gradient(#ffffff,#ffffff);border-radius:20px;border:1px solid rgba(139,92,246,0.15);box-shadow:0 4px 20px rgba(0,0,0,0.04);padding:24px;margin-bottom:16px;">
+
+  <!-- Card header -->
+  <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;">
+    <div style="line-height:1.4;">
+      <span style="color:#8b5cf6;-webkit-text-fill-color:#8b5cf6;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">{{repo_owner}}/</span><span style="color:#111827;-webkit-text-fill-color:#111827;font-size:15px;font-weight:700;">{{repo_name}}</span>
+      <span style="color:#9ca3af;-webkit-text-fill-color:#9ca3af;font-size:12px;margin-left:6px;">{{tag}}</span>
+    </div>
+    <span style="background:{{sev_bg}};color:{{sev_fg}};-webkit-text-fill-color:{{sev_fg}};padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;">{{severity}}</span>
+  </div>
+
+  <!-- Summary -->
+  <p style="margin:0 0 16px;color:#4b5563;-webkit-text-fill-color:#4b5563;font-size:13px;line-height:1.5;">{{summary}}</p>
+
+  <!-- Key changes -->
+  {{changes_block}}
+
+  <!-- Link -->
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(139,92,246,0.1);">
+    <a href="{{url}}" style="color:#7c3aed;-webkit-text-fill-color:#7c3aed;font-size:13px;font-weight:600;text-decoration:none;display:inline-block;">
+      View release &rarr;
+    </a>
+  </div>
+
+</div>

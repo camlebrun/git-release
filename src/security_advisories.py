@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, cast
 
 import requests
 
@@ -28,7 +28,7 @@ def fetch_advisories(owner: str, repo: str, token: str | None = None) -> list[di
         resp = requests.get(
             f"{GITHUB_API_BASE}/repos/{owner}/{repo}/security-advisories",
             headers=headers,
-            params={"per_page": 100, "state": "published"},
+            params={"per_page": "100", "state": "published"},
             timeout=GITHUB_TIMEOUT_S,
         )
         if resp.ok:
@@ -79,7 +79,7 @@ def analyse_advisory(
     )
     try:
         raw = _call_openai(prompt, api_key)
-        return json.loads(raw)
+        return cast(dict[str, Any], json.loads(raw))
     except Exception as e:
         logger.error("Advisory analysis failed for %s: %s", advisory.get("ghsa_id"), e)
         return None

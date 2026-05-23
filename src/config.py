@@ -1,5 +1,5 @@
 GCP_PROJECT = "git-release-496817"
-GCP_REGION = "us-central1"
+GCP_REGION = "europe-west9"
 
 R2_BUCKET = "git-release-releases"
 

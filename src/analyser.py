@@ -5,7 +5,7 @@ import logging
 import time
 
 import requests
-from openai import OpenAI
+from mistralai.client import Mistral
 from pydantic import BaseModel, ValidationError
 
 from src.config import (
@@ -67,7 +67,7 @@ class AuthError(Exception):
 def _call_openai_compat(
     prompt: str, api_key: str, base_url: str, model: str, timeout: float
 ) -> str:
-    from openai import AuthenticationError
+    from openai import AuthenticationError, OpenAI
 
     client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
     try:
@@ -92,17 +92,16 @@ def _call_openai(prompt: str, api_key: str) -> str:
 
 
 def _call_mistral(prompt: str, api_key: str) -> str:
-    from mistralai.client import Mistral
-
     client = Mistral(api_key=api_key)
     response = client.chat.complete(
         model=MISTRAL_MODEL,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[{"role": "user", "content": prompt}],  # type: ignore[arg-type]
         temperature=0,
         max_tokens=LLM_MAX_TOKENS,
         response_format={"type": "json_object"},
     )
-    return response.choices[0].message.content or ""
+    msg = response.choices[0].message
+    return str(msg.content) if msg and msg.content else ""
 
 
 def analyse_release(
