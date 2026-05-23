@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, cast
 
 import boto3
 from botocore.exceptions import ClientError
@@ -42,7 +42,7 @@ def _get_json(s3: Any, bucket: str, key: str) -> dict[str, Any] | None:
         raise
 
 
-def _put_json(s3: Any, bucket: str, key: str, data: dict[str, Any]) -> None:
+def _put_json(s3: Any, bucket: str, key: str, data: dict[str, Any] | list[dict[str, Any]]) -> None:
     s3.put_object(
         Bucket=bucket,
         Key=key,
@@ -127,8 +127,8 @@ def read_all_advisories(s3: Any, bucket: str) -> list[dict[str, Any]]:
     for page in paginator.paginate(Bucket=bucket, Prefix="advisories/"):
         for obj in page.get("Contents", []):
             data = _get_json(s3, bucket, obj["Key"])
-            if data:
-                all_advisories.extend(data)
+            if data is not None:
+                all_advisories.extend(cast(list[dict[str, Any]], data))
     return all_advisories
 
 

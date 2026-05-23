@@ -38,7 +38,7 @@ def _call_email_function(url: str, payload: dict[str, Any]) -> None:
         import google.oauth2.id_token
 
         auth_req = google.auth.transport.requests.Request()
-        token = google.oauth2.id_token.fetch_id_token(auth_req, url)
+        token = google.oauth2.id_token.fetch_id_token(auth_req, url)  # type: ignore[no-untyped-call]
         _http.post(url, json=payload, headers={"Authorization": f"Bearer {token}"}, timeout=20)
     except Exception as e:
         logger.error("Email function call failed: %s", e)
