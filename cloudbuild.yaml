@@ -22,7 +22,7 @@ steps:
       - git-release
       - --gen2
       - --runtime=python312
-      - --region=us-central1
+      - --region=europe-west9
       - --source=.
       - --entry-point=main
       - --trigger-http
