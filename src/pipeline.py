@@ -9,9 +9,20 @@ from typing import Any
 
 import requests as _http
 
-from src.analyser import analyse_dbt_package_release, analyse_release
+from src.analyser import (
+    analyse_dbt_package_release,
+    analyse_fusion_historical,
+    analyse_fusion_release,
+    analyse_release,
+)
 from src.digest import get_digest
-from src.fetcher import backfill_releases, fetch_changelog_releases, fetch_readme, get_new_releases
+from src.fetcher import (
+    HISTORICAL_TAG,
+    backfill_releases,
+    fetch_changelog_releases,
+    fetch_readme,
+    get_new_releases,
+)
 from src.security_advisories import analyse_advisory, fetch_advisories
 from src.semver import parse_semver
 from src.store import (
@@ -176,7 +187,12 @@ def _process_repos(
                 if llm_delay_s > 0 and new_count > 0:
                     time.sleep(llm_delay_s)
 
-                if is_dbt_package:
+                is_historical = tag == HISTORICAL_TAG
+                if is_historical:
+                    analysis, error = analyse_fusion_historical({**release, "repo": repo}, llm_key)
+                elif source == "changelog":
+                    analysis, error = analyse_fusion_release({**release, "repo": repo}, llm_key)
+                elif is_dbt_package:
                     analysis, error = analyse_dbt_package_release(
                         {**release, "repo": repo},
                         readme,
@@ -190,6 +206,12 @@ def _process_repos(
                 if analysis is None:
                     logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
                     continue
+
+                if source == "changelog" and not is_historical:
+                    if not analysis.get("worth_tracking", True):
+                        logger.info("[%s] skipping %s — not worth tracking", repo, tag)
+                        latest_published_at = str(release.get("published_at", ""))
+                        continue
 
                 if is_dbt_package and not _should_store_dbt_release(analysis, release, all_patches):
                     logger.info("[%s] skipping patch %s — not prod-breaking", repo, tag)

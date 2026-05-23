@@ -8,6 +8,8 @@ from pydantic import BaseModel, ValidationError
 
 from src.config import LLM_MAX_TOKENS, MISTRAL_MODEL
 from src.prompts.dbt_package_analysis import DBT_PACKAGE_ANALYSIS_PROMPT
+from src.prompts.fusion_historical import FUSION_HISTORICAL_PROMPT
+from src.prompts.fusion_release_analysis import FUSION_RELEASE_ANALYSIS_PROMPT
 from src.prompts.release_analysis import RELEASE_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,7 @@ class AnalysisResult(BaseModel):
     cve_references: list[str] = []
     severity: str
     tags: list[str]
+    worth_tracking: bool = True
 
 
 class AuthError(Exception):
@@ -131,4 +134,56 @@ def analyse_dbt_package_release(
         return None, str(e)
     except Exception as e:
         logger.error("LLM dbt call failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+
+
+def analyse_fusion_release(
+    release: dict[str, object],
+    api_key: str,
+) -> tuple[dict[str, object] | None, str | None]:
+    """Analyse a dbt-fusion preview release; includes worth_tracking flag."""
+    repo = str(release.get("repo", ""))
+    tag = str(release.get("tag_name", ""))
+    body = str(release.get("body", ""))[:5000]
+
+    prompt = FUSION_RELEASE_ANALYSIS_PROMPT.format(repo=repo, tag=tag, body=body)
+    try:
+        data = json.loads(_call_mistral(prompt, api_key))
+        result = AnalysisResult(**data)
+        return result.model_dump(), None
+    except ValidationError as e:
+        logger.error("Fusion LLM validation failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+    except Exception as e:
+        logger.error("Fusion LLM call failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+
+
+def analyse_fusion_historical(
+    release: dict[str, object],
+    api_key: str,
+) -> tuple[dict[str, object] | None, str | None]:
+    """Analyse the consolidated pre-2026 dbt-fusion historical entry."""
+    repo = str(release.get("repo", ""))
+    tag = str(release.get("tag_name", ""))
+    meta = release.get("_historical_meta", {})
+    if not isinstance(meta, dict):
+        meta = {}
+
+    prompt = FUSION_HISTORICAL_PROMPT.format(
+        version_count=meta.get("version_count", "?"),
+        first_version=meta.get("first_version", ""),
+        last_version=meta.get("last_version", ""),
+        version_list=meta.get("version_list", ""),
+        body_sample=str(release.get("body", ""))[:4000],
+    )
+    try:
+        data = json.loads(_call_mistral(prompt, api_key))
+        result = AnalysisResult(**data)
+        return result.model_dump(), None
+    except ValidationError as e:
+        logger.error("Fusion historical LLM validation failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+    except Exception as e:
+        logger.error("Fusion historical LLM call failed for %s@%s: %s", repo, tag, e)
         return None, str(e)

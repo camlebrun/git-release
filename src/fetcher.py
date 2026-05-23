@@ -285,20 +285,9 @@ def backfill_releases(
 
 _CHANGELOG_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+-preview\.\d+)$")
 _CHANGELOG_DATE_RE = re.compile(r"Released\s+(\w+ \d+, \d{4})")
-_MONTH_ABBR = {
-    "January": 1,
-    "February": 2,
-    "March": 3,
-    "April": 4,
-    "May": 5,
-    "June": 6,
-    "July": 7,
-    "August": 8,
-    "September": 9,
-    "October": 10,
-    "November": 11,
-    "December": 12,
-}
+_HISTORICAL_CUTOFF = "2026-01-01T00:00:00+00:00"
+_HISTORICAL_TAG = "2.0.0-pre-2026"
+HISTORICAL_TAG = _HISTORICAL_TAG
 
 
 def _parse_changelog_date(text: str) -> str | None:
@@ -317,16 +306,57 @@ def _changelog_anchor(version: str) -> str:
     return f"https://github.com/dbt-labs/dbt-fusion/blob/main/CHANGELOG.md#{anchor}"
 
 
+def _build_historical_record(
+    pre_releases: list[dict[str, object]],
+    owner: str,
+    repo: str,
+) -> dict[str, object]:
+    """Merge all pre-2026 releases into one consolidated synthetic record."""
+    pre_releases_sorted = sorted(pre_releases, key=lambda r: str(r["published_at"]))
+    first = str(pre_releases_sorted[0]["tag_name"])
+    last = str(pre_releases_sorted[-1]["tag_name"])
+    published_at = str(pre_releases_sorted[-1]["published_at"])
+
+    version_list = "\n".join(
+        f"- {r['tag_name']} ({str(r['published_at'])[:10]})" for r in pre_releases_sorted
+    )
+
+    # Sample: first 2 + last 2 versions for LLM context
+    sample_releases = pre_releases_sorted[:2] + pre_releases_sorted[-2:]
+    body_sample = "\n\n---\n\n".join(
+        f"### {r['tag_name']}\n{str(r['body'])[:600]}" for r in sample_releases
+    )
+
+    return {
+        "tag_name": _HISTORICAL_TAG,
+        "name": f"dbt-fusion — Historical snapshot ({first} → {last})",
+        "body": body_sample,
+        "published_at": published_at,
+        "html_url": f"https://github.com/{owner}/{repo}/blob/main/CHANGELOG.md",
+        "prerelease": True,
+        "draft": False,
+        "id": None,
+        "author": None,
+        "_historical_meta": {
+            "version_count": len(pre_releases),
+            "first_version": first,
+            "last_version": last,
+            "version_list": version_list,
+        },
+    }
+
+
 def fetch_changelog_releases(
     owner: str,
     repo: str,
     token: str | None = None,
     since: str | None = None,
 ) -> list[dict[str, object]]:
-    """Parse CHANGELOG.md from a GitHub repo and return release-like records.
+    """Parse CHANGELOG.md and return release-like records.
 
-    Only keeps versions matching X.Y.Z-preview.N (no nightly, no beta).
-    Patch versions (Z > 0) are excluded.
+    Pre-2026 versions are merged into a single historical entry.
+    2026+ versions matching X.Y.Z-preview.N are returned individually.
+    Patch versions (Z > 0), nightly, and beta entries are excluded.
     """
     url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/contents/CHANGELOG.md"
     headers = {**_headers_base(token), "Accept": "application/vnd.github.raw+json"}
@@ -336,8 +366,10 @@ def fetch_changelog_releases(
 
     raw = resp.text
     since_dt = datetime.fromisoformat(since.replace("Z", "+00:00")) if since else None
+    cutoff_dt = datetime.fromisoformat(_HISTORICAL_CUTOFF)
 
     sections = re.split(r"^## ", raw, flags=re.MULTILINE)
+    pre_releases: list[dict[str, object]] = []
     releases: list[dict[str, object]] = []
 
     for section in sections:
@@ -357,10 +389,14 @@ def fetch_changelog_releases(
         if published_at is None:
             continue
 
-        if since_dt:
-            pub_dt = datetime.fromisoformat(published_at)
-            if pub_dt <= since_dt:
-                continue
+        pub_dt = datetime.fromisoformat(published_at)
+
+        if pub_dt < cutoff_dt:
+            pre_releases.append({"tag_name": header, "body": body, "published_at": published_at})
+            continue
+
+        if since_dt and pub_dt <= since_dt:
+            continue
 
         releases.append(
             {
@@ -376,5 +412,12 @@ def fetch_changelog_releases(
             }
         )
 
-    releases.sort(key=lambda r: str(r["published_at"]))
-    return releases
+    result: list[dict[str, object]] = []
+
+    # Include historical entry only on first backfill (no cursor yet)
+    historical_already_stored = since_dt is not None
+    if pre_releases and not historical_already_stored:
+        result.append(_build_historical_record(pre_releases, owner, repo))
+
+    result.extend(sorted(releases, key=lambda r: str(r["published_at"])))
+    return result
