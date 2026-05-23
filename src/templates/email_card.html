@@ -1,24 +1,24 @@
-<div style="background:white;border-radius:20px;border:1px solid rgba(139,92,246,0.12);box-shadow:0 1px 3px rgba(139,92,246,0.06);padding:20px 24px;margin-bottom:12px;">
+<div style="background:white;background-image:linear-gradient(#ffffff,#ffffff);border-radius:20px;border:1px solid rgba(139,92,246,0.15);box-shadow:0 4px 20px rgba(0,0,0,0.04);padding:24px;margin-bottom:16px;">
 
   <!-- Card header -->
-  <div style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:flex-start;">
-    <div>
-      <span style="color:#6b7280;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:0.08em;">{{repo_owner}}/</span><span style="color:#111827;font-size:14px;font-weight:600;">{{repo_name}}</span>
-      <span style="color:#9ca3af;font-size:12px;margin-left:6px;">{{tag}}</span>
+  <div style="margin-bottom:12px;display:flex;justify-content:space-between;align-items:flex-start;">
+    <div style="line-height:1.4;">
+      <span style="color:#8b5cf6;-webkit-text-fill-color:#8b5cf6;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;">{{repo_owner}}/</span><span style="color:#111827;-webkit-text-fill-color:#111827;font-size:15px;font-weight:700;">{{repo_name}}</span>
+      <span style="color:#9ca3af;-webkit-text-fill-color:#9ca3af;font-size:12px;margin-left:6px;">{{tag}}</span>
     </div>
-    <span style="background:{{sev_bg}};color:{{sev_fg}};padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;white-space:nowrap;">{{severity}}</span>
+    <span style="background:{{sev_bg}};color:{{sev_fg}};-webkit-text-fill-color:{{sev_fg}};padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap;">{{severity}}</span>
   </div>
 
   <!-- Summary -->
-  <p style="margin:0 0 12px;color:#374151;font-size:13px;line-height:1.6;">{{summary}}</p>
+  <p style="margin:0 0 16px;color:#4b5563;-webkit-text-fill-color:#4b5563;font-size:13px;line-height:1.5;">{{summary}}</p>
 
   <!-- Key changes -->
   {{changes_block}}
 
   <!-- Link -->
-  <div style="margin-top:14px;">
-    <a href="{{url}}" style="color:#5b5fc7;font-size:12px;font-weight:500;text-decoration:none;">
-      View release →
+  <div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(139,92,246,0.1);">
+    <a href="{{url}}" style="color:#7c3aed;-webkit-text-fill-color:#7c3aed;font-size:13px;font-weight:600;text-decoration:none;display:inline-block;">
+      View release &rarr;
     </a>
   </div>
 
