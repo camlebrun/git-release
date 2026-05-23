@@ -50,10 +50,19 @@ def _render_card(r: dict[str, Any]) -> str:
 
     changes_block = ""
     if changes:
+        li_style = (
+            "margin:6px 0;color:#6b7280;-webkit-text-fill-color:#6b7280;"
+            "font-size:13px;line-height:1.5;"
+        )
+        bullet_style = (
+            "color:#8b5cf6;-webkit-text-fill-color:#8b5cf6;"
+            "font-weight:700;margin-right:8px;"
+        )
         items = "".join(
-            f'<li style="margin:6px 0;color:#6b7280;-webkit-text-fill-color:#6b7280;font-size:13px;line-height:1.5;">'
-            f'<span style="color:#8b5cf6;-webkit-text-fill-color:#8b5cf6;font-weight:700;margin-right:8px;">&rsaquo;</span>'
-            f'{_safe_text(str(c))}</li>' for c in changes
+            f'<li style="{li_style}">'
+            f'<span style="{bullet_style}">&rsaquo;</span>'
+            f"{_safe_text(str(c))}</li>"
+            for c in changes
         )
         changes_block = f'<ul style="margin:0;padding:0;list-style:none;">{items}</ul>'
 
