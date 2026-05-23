@@ -5,8 +5,7 @@ import logging
 import time
 
 import requests
-from mistralai import Mistral
-from mistralai.models import UserMessage
+from mistralai.client import Mistral
 from pydantic import BaseModel, ValidationError
 
 from src.config import (
@@ -96,13 +95,13 @@ def _call_mistral(prompt: str, api_key: str) -> str:
     client = Mistral(api_key=api_key)
     response = client.chat.complete(
         model=MISTRAL_MODEL,
-        messages=[UserMessage(role="user", content=prompt)],
+        messages=[{"role": "user", "content": prompt}],  # type: ignore[arg-type]
         temperature=0,
         max_tokens=LLM_MAX_TOKENS,
         response_format={"type": "json_object"},
     )
-    content = response.choices[0].message.content
-    return content if isinstance(content, str) else ""
+    msg = response.choices[0].message
+    return str(msg.content) if msg and msg.content else ""
 
 
 def analyse_release(
