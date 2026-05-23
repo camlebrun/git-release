@@ -115,10 +115,7 @@ def run_pipeline(
                     from src.semver import parse_semver
 
                     releases = [
-                        r
-                        for r in releases
-                        if parse_semver(str(r.get("tag_name", ""))).patch == 0
-                        and parse_semver(str(r.get("tag_name", ""))).minor > 0
+                        r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0
                     ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 

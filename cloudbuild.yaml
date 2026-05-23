@@ -29,25 +29,23 @@ steps:
       - push
       - europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
 
-  # Deploy to Cloud Run
+  # Deploy Cloud Run Job
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
     id: deploy
     waitFor: [push]
     entrypoint: gcloud
     args:
       - run
+      - jobs
       - deploy
       - git-release
       - --image=europe-west9-docker.pkg.dev/git-release-496817/git-release/app:$SHORT_SHA
       - --region=europe-west9
-      - --platform=managed
-      - --allow-unauthenticated
       - --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com
       - --memory=512Mi
       - --cpu=1
-      - --timeout=300
-      - --concurrency=1
-      - --max-instances=1
+      - --task-timeout=300
+      - --max-retries=0
       - --project=git-release-496817
 
 images:
