@@ -1,4 +1,4 @@
-# Plan — GitHub Release Digest
+# Plan — StackRadar
 
 > Technical blueprint. Translate spec intent into architecture decisions, data models, and API contracts.
 
@@ -10,33 +10,37 @@
 ┌──────────────────────────────────────────────────────────────────────┐
 │  GCP project: git-release-496817                                     │
 │                                                                      │
-│  ┌──────────────────┐   HTTP POST (daily)                           │
+│  ┌──────────────────┐   triggers Job (daily)                        │
 │  │ Cloud Scheduler  │──────────────────────────────────┐            │
 │  │ 0 6 * * * UTC    │                                  │            │
 │  └──────────────────┘                                  ▼            │
 │                                          ┌─────────────────────┐    │
-│  Browser / curl ──── GET /trigger ──────▶│                     │    │
-│  Browser / curl ──── GET /digest  ──────▶│  Cloud Function     │    │
-│  Browser / curl ──── GET /health  ──────▶│  (Python 3.12)      │    │
-│                                          │  main()             │    │
+│                                          │  Cloud Run Job      │    │
+│                                          │  (Python 3.12)      │    │
+│                                          │  src/main.py        │    │
 │                                          └────────┬────────────┘    │
 │                                                   │                  │
 │                    ┌──────────────────────────────┼───────────────┐ │
-│                    │   Cloud Storage bucket        │               │ │
-│                    │   git-release-496817-releases │               │ │
+│                    │   Cloudflare R2               │               │ │
+│                    │   git-release-releases        │               │ │
 │                    │                              ▼               │ │
 │                    │  releases/{owner}/{repo}/{tag}.json (blobs)  │ │
 │                    │  meta/cursor/{owner}/{repo}.json             │ │
 │                    │  meta/run_status.json                        │ │
 │                    └──────────────────────────────────────────────┘ │
 │                                                                      │
+│  ┌──────────────────────────────────────────────┐                   │
+│  │  Secret Manager                              │                   │
+│  │  MISTRAL_API_KEY / GITHUB_TOKEN /            │                   │
+│  │  EMAIL_FUNCTION_URL / R2 credentials         │                   │
+│  └──────────────────────────────────────────────┘                   │
+│                                                                      │
 │  ┌──────────────────────────────────────┐                           │
-│  │  Secret Manager                      │                           │
-│  │  GROQ_API_KEY / GITHUB_TOKEN /       │                           │
-│  │  TRIGGER_SECRET                      │                           │
+│  │  Cloud Function gen2 (email)         │                           │
+│  │  functions/email/main.py             │                           │
 │  └──────────────────────────────────────┘                           │
 └──────────────────────────────────────────────────────────────────────┘
-                        │  GET /digest (CORS)
+                        │  reads public R2 URL
                         ▼
              ┌──────────────────────┐
              │  Cloudflare Pages    │
@@ -45,10 +49,11 @@
              └──────────────────────┘
 ```
 
-**Cloud Function** (HTTP trigger, gen2) handles both the cron invocation from Cloud Scheduler and direct HTTP calls.  
-**GCS** is the single storage layer — release blobs under `releases/`, metadata under `meta/`. No separate database needed.  
-**Secret Manager** holds all credentials; the Cloud Function's service account has `secretmanager.secretAccessor` role.  
-**Cloudflare Pages** serves the static bento frontend; it calls the Cloud Function URL directly (CORS enabled).
+**Cloud Run Job** is the pipeline compute — triggered daily by Cloud Scheduler, runs to completion, scales to zero.  
+**Cloudflare R2** is the single storage layer (S3-compatible via boto3) — release blobs under `releases/`, metadata under `meta/`. No separate database needed.  
+**Secret Manager** holds all credentials; the Cloud Run Job's service account has `secretmanager.secretAccessor` role.  
+**Cloud Function gen2** (email) is a separate lightweight HTTP-triggered unit that sends the daily digest email.  
+**Cloudflare Pages** serves the static bento frontend; it reads release data directly from the public R2 bucket URL.
 
 ---
 
@@ -58,71 +63,68 @@
 git-release/
 ├── repos.json                  # Tracked repos ["owner/repo", ...]
 ├── pyproject.toml              # Python project config (black, ruff, mypy, pytest)
-├── requirements.txt            # Runtime deps (groq, google-cloud-storage, ...)
-├── requirements-dev.txt        # Dev deps (pytest, pytest-mock, functions-framework, ...)
+├── requirements.txt            # Runtime deps (mistralai, boto3, ...)
+├── requirements-dev.txt        # Dev deps (pytest, pytest-mock, pytest-cov, pip-audit, ...)
+├── Dockerfile                  # Cloud Run Job container image
 ├── src/
-│   ├── main.py                 # Cloud Function entry: request router
+│   ├── main.py                 # Cloud Run Job entry point
 │   ├── config.py               # Constants (limits, bucket name, project ID, etc.)
-│   ├── secrets.py              # Google Secret Manager helpers
+│   ├── secrets.py              # GCP Secret Manager helpers
 │   ├── fetcher.py              # GitHub API client
 │   ├── semver.py               # Minimal semver parser (no external dep)
-│   ├── analyser.py             # Groq API client + prompt call
-│   ├── store.py                # GCS read/write helpers
+│   ├── analyser.py             # Mistral API client + prompt call
+│   ├── store.py                # R2/boto3 read/write helpers
+│   ├── pipeline.py             # Orchestration: fetch → analyse → store
 │   ├── digest.py               # Digest aggregation logic
+│   ├── security_advisories.py  # GitHub Security Advisories fetch + analyse
 │   └── prompts/
-│       └── release_analysis.py # LLM prompt template string
+│       ├── release_analysis.py    # LLM prompt: release summary
+│       ├── dbt_package_analysis.py# LLM prompt: dbt package
+│       └── advisory_analysis.py   # LLM prompt: security advisory
+├── functions/
+│   └── email/
+│       ├── main.py             # Cloud Function gen2: send daily digest email
+│       └── requirements.txt
 ├── public/
-│   ├── index.html              # Bento page shell
+│   ├── index.html              # Main bento page
 │   ├── app.js                  # Fetch + render logic
-│   └── style.css               # Grid bento styles
+│   ├── style.css               # Grid bento styles
+│   └── dbt-packages/           # dbt packages sub-page
 └── tests/
     ├── test_fetcher.py
     ├── test_semver.py
     ├── test_analyser.py
     ├── test_store.py
-    └── test_digest.py
+    ├── test_digest.py
+    ├── test_pipeline.py
+    └── test_security_advisories.py
 ```
 
 ---
 
-## 3.3 Cloud Function Entry & Routing (`src/main.py`)
+## 3.3 Cloud Run Job Entry Point (`src/main.py`)
 
 ```python
-import functions_framework
-from flask import Request, Response
+def main() -> None:
+    llm_key = get_secret(GCP_PROJECT, "MISTRAL_API_KEY")
+    github_token = get_secret(GCP_PROJECT, "GITHUB_TOKEN")   # optional
+    email_function_url = get_secret(GCP_PROJECT, "EMAIL_FUNCTION_URL")  # optional
+    s3 = get_s3_client(...)
+    run_pipeline(s3, R2_BUCKET, llm_key, github_token, email_function_url)
 
-@functions_framework.http
-def main(request: Request) -> Response:
-    # OPTIONS preflight for CORS
-    if request.method == "OPTIONS":
-        return _cors_preflight()
-    path = request.path.rstrip("/")
-    if path == "/digest":
-        return handle_digest(request)
-    if path == "/health":
-        return handle_health(request)
-    if path == "/trigger":
-        return handle_trigger(request)
-    return Response("Not Found", status=404)
+if __name__ == "__main__":
+    main()
 ```
 
-Routes:
+The Cloud Run Job is invoked by **Cloud Scheduler** (`0 6 * * * UTC`). It runs to completion and exits. There are no HTTP routes on the job itself.
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| GET | `/digest` | none | Return paginated release records |
-| GET | `/health` | none | Last run info + per-repo status |
-| GET/POST | `/trigger` | `X-Trigger-Secret` header | Manually trigger or Cloud Scheduler call |
-
-CORS: `Access-Control-Allow-Origin: *` on all routes — required so Cloudflare Pages (different origin) can call the function.
-
-**Cloud Scheduler** sends a `POST /trigger` with the secret header from a service account — same code path as manual trigger.
+The **email Cloud Function** (`functions/email/main.py`) is a separate gen2 HTTP-triggered function that reads the digest from R2 and sends the daily email. It is called by the pipeline at the end of a successful run via `EMAIL_FUNCTION_URL`.
 
 ---
 
 ## 3.4 GitHub Fetcher (`src/fetcher.py`)
 
-Uses `requests` (simpler than `httpx` for sync Cloud Functions context).
+Uses `requests` (simpler than `httpx` for sync Cloud Run context).
 
 ### Incremental fetch (cursor exists)
 ```python
@@ -169,12 +171,16 @@ No external dependency — stdlib `re` only.
 ## 3.6 Analyser (`src/analyser.py`)
 
 ```python
-from groq import Groq
+from mistralai import Mistral
 
-def analyse_release(release: dict, api_key: str) -> dict | None:
+def call_llm(prompt: str, api_key: str) -> str:
+    """Single public entry point for all LLM calls."""
+
+def analyse_release(release: dict, api_key: str) -> tuple[dict | None, str | None]:
 ```
-- Instantiates `Groq(api_key=api_key)`.
-- Calls `client.chat.completions.create(model=GROQ_MODEL, response_format={"type": "json_object"}, ...)`.
+- Instantiates `Mistral(api_key=api_key)`.
+- Calls `client.chat.complete(model=MISTRAL_MODEL, response_format={"type": "json_object"}, ...)`.
+- `MISTRAL_MODEL = "mistral-small-latest"`, `LLM_MAX_TOKENS = 4096`.
 - Prompt template from `src/prompts/release_analysis.py` — injects `repo`, `tag`, `name`, `body[:4000]`.
 - Expected JSON output:
   ```json
@@ -186,7 +192,7 @@ def analyse_release(release: dict, api_key: str) -> dict | None:
     "tags": ["breaking|security|performance|bug-fix|feature|deprecation"]
   }
   ```
-- Validates with a `pydantic` model (`AnalysisResult`); on `ValidationError` returns `None` and logs `analysis_error`.
+- Validates with a `pydantic` model (`AnalysisResult`); on `ValidationError` returns `(None, error_str)` and logs `analysis_error`.
 
 ---
 
@@ -246,42 +252,33 @@ def get_digest(bucket, limit: int = DIGEST_DEFAULT_LIMIT) -> list[dict]:
 
 ---
 
-## 3.9 Pipeline Orchestration
+## 3.9 Pipeline Orchestration (`src/pipeline.py`)
 
-Runs on `/trigger` (from Cloud Scheduler or manual call):
+Runs as the Cloud Run Job's main workload:
 
 ```python
-def run_pipeline(bucket, groq_key: str, github_token: str | None) -> dict:
-    repos = load_repos()          # reads repos.json bundled with the function
-    status = {}
-    for repo in repos:
-        owner, name = repo.split("/")
-        try:
-            cursor = get_cursor(bucket, owner, name)
-            if cursor is None:
-                releases = backfill_releases(owner, name, github_token)
-            else:
-                releases = get_new_releases(owner, name, cursor, github_token)
-            new_count = 0
-            latest_published_at = cursor
-            for release in releases:          # ascending published_at
-                if release_exists(bucket, owner, name, release["tag_name"]):
-                    continue
-                analysis = analyse_release(release, groq_key)
-                record = build_record(release, analysis)
-                put_release(bucket, record)
-                new_count += 1
-                latest_published_at = release["published_at"]
-            if latest_published_at and latest_published_at != cursor:
-                set_cursor(bucket, owner, name, latest_published_at)
-            status[repo] = {"ok": True, "new": new_count}
-        except Exception as e:
-            logging.error("repo %s failed: %s", repo, e)
-            status[repo] = {"ok": False, "error": str(e)}
-    run_status = {"ran_at": utcnow_iso(), "repos": status}
-    set_run_status(bucket, run_status)
+def run_pipeline(
+    s3: S3Client,
+    bucket: str,
+    llm_key: str,
+    github_token: str | None = None,
+    email_function_url: str | None = None,
+) -> dict:
+    repos = load_repos()       # reads repos.json
+    repo_results = _process_repos(s3, bucket, repos, llm_key, github_token, ...)
+    _process_advisories(s3, bucket, repos, llm_key, github_token)
+    digest, digest_key = _build_and_clean_digest(s3, bucket)
+    if email_function_url and digest:
+        _send_email_notification(email_function_url, digest[:5])
+    run_status = {"ran_at": utcnow_iso(), "repos": repo_results}
+    set_run_status(s3, bucket, run_status)
     return run_status
 ```
+
+Three private helpers keep the orchestrator thin:
+- `_process_repos` — per-repo fetch / analyse / store loop
+- `_process_advisories` — GitHub Security Advisories fetch + LLM analyse
+- `_build_and_clean_digest` — aggregate, sort, write `digest.json` to R2
 
 ---
 
@@ -304,18 +301,18 @@ def run_pipeline(bucket, groq_key: str, github_token: str | None) -> dict:
 
 ```python
 GCP_PROJECT      = "git-release-496817"
-GCS_BUCKET       = "git-release-496817-releases"
-GCP_REGION       = "us-central1"
+GCP_REGION       = "europe-west9"
+R2_BUCKET        = "git-release-releases"
 
 MAX_RELEASES_PER_RUN   = 50
 BACKFILL_NON_SEMVER    = 20    # fallback count for repos without semver tags
 DIGEST_DEFAULT_LIMIT   = 20
 DIGEST_MAX_LIMIT       = 100
-LLM_MAX_TOKENS         = 1024
-GROQ_MODEL             = "llama-3.3-70b-versatile"
+LLM_MAX_TOKENS         = 4096
+MISTRAL_MODEL          = "mistral-small-latest"
 GITHUB_API_BASE        = "https://api.github.com"
-GROQ_TIMEOUT_S         = 10
 GITHUB_TIMEOUT_S       = 10
+GITHUB_RETRY_MAX       = 3
 ```
 
 ---
@@ -333,68 +330,78 @@ def get_secret(project: str, name: str) -> str:
     return client.access_secret_version(name=path).payload.data.decode()
 ```
 
-Secrets accessed at function startup (cached in module scope for warm instances):
-- `GROQ_API_KEY` — Groq account API key
+Secrets accessed at job startup:
+- `MISTRAL_API_KEY` — Mistral account API key
 - `GITHUB_TOKEN` — GitHub PAT, `public_repo` read-only (optional, raises rate limit 60→5000 req/hr)
-- `TRIGGER_SECRET` — random string validated on `/trigger` requests
+- `EMAIL_FUNCTION_URL` — URL of the email Cloud Function (optional; email skipped if absent)
 - `R2_ACCESS_KEY_ID` — R2 API token ID (create in Cloudflare dashboard → R2 → Manage API Tokens)
 - `R2_SECRET_ACCESS_KEY` — R2 API token secret
 - `R2_ACCOUNT_ID` — Cloudflare account ID (found in dashboard URL)
 
-The Cloud Function's service account needs `roles/secretmanager.secretAccessor`.
+The Cloud Run Job's service account needs `roles/secretmanager.secretAccessor`.
 
 ---
 
 ## 3.13 Deployment
 
 ```bash
-# 1. Create R2 bucket in Cloudflare dashboard (or via Wrangler CLI if available)
+# 1. Create R2 bucket in Cloudflare dashboard
 # Dashboard → R2 → Create bucket → name: git-release-releases
 # Then create R2 API token: Dashboard → R2 → Manage API Tokens → Create token (Object Read & Write)
 
 # 2. Store secrets in GCP Secret Manager
-echo -n "gsk_..." | gcloud secrets create GROQ_API_KEY --data-file=- --project=git-release-496817
+echo -n "..." | gcloud secrets create MISTRAL_API_KEY --data-file=- --project=git-release-496817
 echo -n "ghp_..." | gcloud secrets create GITHUB_TOKEN --data-file=- --project=git-release-496817
-echo -n "$(openssl rand -hex 32)" | gcloud secrets create TRIGGER_SECRET --data-file=- --project=git-release-496817
+echo -n "https://..." | gcloud secrets create EMAIL_FUNCTION_URL --data-file=- --project=git-release-496817
 echo -n "<r2-access-key-id>" | gcloud secrets create R2_ACCESS_KEY_ID --data-file=- --project=git-release-496817
 echo -n "<r2-secret-access-key>" | gcloud secrets create R2_SECRET_ACCESS_KEY --data-file=- --project=git-release-496817
 echo -n "<cloudflare-account-id>" | gcloud secrets create R2_ACCOUNT_ID --data-file=- --project=git-release-496817
 
-# 3. Deploy Cloud Function (gen2)
-gcloud functions deploy git-release \
-  --gen2 \
-  --runtime=python312 \
-  --region=us-central1 \
-  --source=. \
-  --entry-point=main \
-  --trigger-http \
-  --allow-unauthenticated \
+# 3. Build and push Docker image (or use Cloud Build)
+gcloud builds submit --config=cloudbuild.yaml --project=git-release-496817
+
+# 4. Deploy Cloud Run Job
+gcloud run jobs deploy stackradar-pipeline \
+  --image=europe-west9-docker.pkg.dev/git-release-496817/git-release/stackradar:latest \
+  --region=europe-west9 \
   --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com \
   --project=git-release-496817
 
-# 4. Create Cloud Scheduler job
-gcloud scheduler jobs create http git-release-daily \
+# 5. Create Cloud Scheduler job
+gcloud scheduler jobs create http stackradar-daily \
   --schedule="0 6 * * *" \
-  --uri="https://us-central1-git-release-496817.cloudfunctions.net/git-release/trigger" \
+  --uri="https://europe-west9-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/git-release-496817/jobs/stackradar-pipeline:run" \
   --http-method=POST \
-  --headers="X-Trigger-Secret=$(gcloud secrets versions access latest --secret=TRIGGER_SECRET --project=git-release-496817)" \
+  --oauth-service-account-email=git-release-sa@git-release-496817.iam.gserviceaccount.com \
   --time-zone="UTC" \
   --project=git-release-496817
 
-# 5. Deploy frontend to Cloudflare Pages
-# Set the Cloud Function URL in public/index.html meta tag, then:
-npx wrangler pages deploy public/ --project-name=git-release
+# 6. Deploy email Cloud Function
+gcloud functions deploy email-digest \
+  --gen2 \
+  --runtime=python312 \
+  --region=europe-west9 \
+  --source=functions/email \
+  --entry-point=send_digest \
+  --trigger-http \
+  --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com \
+  --project=git-release-496817
+
+# 7. Frontend deploys automatically via Cloudflare Pages on push to main
 ```
 
 ---
 
 ## 3.14 Testing Strategy
 
-- **Unit tests** (`pytest` + `pytest-mock`):
+- **Unit tests** (`pytest` + `pytest-mock`, coverage gate ≥ 65%):
   - `test_semver.py`: tag parsing edge cases
   - `test_fetcher.py`: mock `requests.get`, assert URL construction, pagination, backfill filter
-  - `test_analyser.py`: mock Groq SDK, assert pydantic validation + fallback
-  - `test_store.py`: mock `google-cloud-storage` client, assert idempotency, cursor read/write
+  - `test_analyser.py`: mock Mistral SDK, assert pydantic validation + fallback
+  - `test_store.py`: mock boto3 S3 client, assert idempotency, cursor read/write
   - `test_digest.py`: assert sort order, limit, body stripping
-- **Local integration**: `functions-framework --target=main --port=8080` with `.env.local` for secrets (never committed)
+  - `test_pipeline.py`: mock all I/O, assert orchestration (backfill vs incremental, error isolation)
+  - `test_security_advisories.py`: mock GitHub advisory API + LLM, assert normalisation and severity sort
+- **Local run**: `python -m src.main` with `.env.local` for secrets (never committed)
+- **Security scan**: `bandit -r src functions` + `pip-audit` in CI
 - **No E2E browser automation in v1** — manual visual check of bento page

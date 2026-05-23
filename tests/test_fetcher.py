@@ -2,7 +2,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.fetcher import GitHubFetchError, backfill_releases, get_new_releases
+from src.fetcher import (
+    GitHubFetchError,
+    backfill_releases,
+    filter_trivial_changes,
+    get_new_releases,
+)
 
 
 def _release(tag: str, published_at: str) -> dict:
@@ -127,3 +132,23 @@ def test_backfill_min_version_exact_match_included() -> None:
     with patch("src.fetcher.requests.get", side_effect=[_make_resp(releases), _make_resp([])]):
         result = backfill_releases("owner", "repo", min_version="1.0.0")
     assert len(result) == 1
+
+
+# ── filter_trivial_changes ───────────────────────────────────────────────────
+
+
+def test_filter_removes_trivial_entries() -> None:
+    changes = ["Fix typo in README", "Add new feature", "chore: bump version"]
+    result = filter_trivial_changes(changes)
+    assert result == ["Add new feature"]
+
+
+def test_filter_keeps_all_non_trivial() -> None:
+    changes = ["Improve query performance", "Support Python 3.12"]
+    assert filter_trivial_changes(changes) == changes
+
+
+def test_filter_skips_non_string_entries() -> None:
+    changes = ["Fix typo", 42, None, "Real change"]  # type: ignore[list-item]
+    result = filter_trivial_changes(changes)
+    assert result == ["Real change"]

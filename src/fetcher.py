@@ -271,10 +271,9 @@ def backfill_releases(
         max_major = max(sv.major for _, sv in valid)
         valid = [(r, sv) for r, sv in valid if sv.major >= max_major - 1]
 
-    kept = [(r, sv) for r, sv in valid]
     if stable_only:
-        kept = [(r, sv) for r, sv in kept if not r.get("prerelease")]
+        valid = [(r, sv) for r, sv in valid if not r.get("prerelease")]
     if minor_only:
-        kept = [(r, sv) for r, sv in kept if sv.patch == 0]
-    kept.sort(key=lambda x: str(x[0]["published_at"]))
-    return [r for r, _ in kept]
+        valid = [(r, sv) for r, sv in valid if sv.patch == 0]
+    valid.sort(key=lambda x: str(x[0]["published_at"]))
+    return [r for r, _ in valid]

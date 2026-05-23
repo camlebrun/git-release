@@ -2,23 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-import time
 
-import requests
 from mistralai.client import Mistral
 from pydantic import BaseModel, ValidationError
 
-from src.config import (
-    GEMINI_BASE_URL,
-    GEMINI_MODEL,
-    GROQ_BASE_URL,
-    GROQ_MODEL,
-    GROQ_TIMEOUT_S,
-    LLM_MAX_TOKENS,
-    MISTRAL_MODEL,
-    OPENAI_BASE_URL,
-    OPENAI_MODEL,
-)
+from src.config import LLM_MAX_TOKENS, MISTRAL_MODEL
 from src.prompts.dbt_package_analysis import DBT_PACKAGE_ANALYSIS_PROMPT
 from src.prompts.release_analysis import RELEASE_ANALYSIS_PROMPT
 
@@ -44,61 +32,8 @@ class AnalysisResult(BaseModel):
     tags: list[str]
 
 
-def _call_gemini(prompt: str, api_key: str, retries: int = 5) -> str:
-    url = f"{GEMINI_BASE_URL}/{GEMINI_MODEL}:generateContent"
-    for attempt in range(retries):
-        resp = requests.post(
-            url,
-            headers={"Content-Type": "application/json", "X-goog-api-key": api_key},
-            json={
-                "contents": [{"parts": [{"text": prompt}]}],
-                "generationConfig": {
-                    "responseMimeType": "application/json",
-                    "maxOutputTokens": LLM_MAX_TOKENS,
-                    "temperature": 0,
-                },
-            },
-            timeout=30,
-        )
-        if resp.status_code == 429:
-            wait = 4 * (2**attempt)  # 4s, 8s, 16s, 32s, 64s
-            logger.warning("Gemini 429 — wait %ss (attempt %s/%s)", wait, attempt + 1, retries)
-            time.sleep(wait)
-            continue
-        resp.raise_for_status()
-        return str(resp.json()["candidates"][0]["content"]["parts"][0]["text"])
-    raise RuntimeError(f"Gemini 429 after {retries} retries")
-
-
 class AuthError(Exception):
-    """Raised on 401 — invalid API key, must stop the pipeline."""
-
-
-def _call_openai_compat(
-    prompt: str, api_key: str, base_url: str, model: str, timeout: float
-) -> str:
-    from openai import AuthenticationError, OpenAI
-
-    client = OpenAI(api_key=api_key, base_url=base_url, timeout=timeout)
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-            temperature=0,
-            max_tokens=LLM_MAX_TOKENS,
-        )
-    except AuthenticationError as e:
-        raise AuthError(f"Invalid API key — update your key and restart: {e}") from e
-    return response.choices[0].message.content or ""
-
-
-def _call_groq(prompt: str, api_key: str) -> str:
-    return _call_openai_compat(prompt, api_key, GROQ_BASE_URL, GROQ_MODEL, float(GROQ_TIMEOUT_S))
-
-
-def _call_openai(prompt: str, api_key: str) -> str:
-    return _call_openai_compat(prompt, api_key, OPENAI_BASE_URL, OPENAI_MODEL, 30.0)
+    """Raised on 401 — invalid API key, stops the pipeline."""
 
 
 def _call_mistral(prompt: str, api_key: str) -> str:
@@ -114,10 +49,14 @@ def _call_mistral(prompt: str, api_key: str) -> str:
     return str(msg.content) if msg and msg.content else ""
 
 
+def call_llm(prompt: str, api_key: str) -> str:
+    """Public entry point — calls the configured LLM and returns a raw JSON string."""
+    return _call_mistral(prompt, api_key)
+
+
 def analyse_release(
     release: dict[str, object],
     api_key: str,
-    provider: str = "groq",
 ) -> tuple[dict[str, object] | None, str | None]:
     repo = str(release.get("repo", ""))
     tag = str(release.get("tag_name", ""))
@@ -125,18 +64,8 @@ def analyse_release(
     body = str(release.get("body", ""))[:4000]
 
     prompt = RELEASE_ANALYSIS_PROMPT.format(repo=repo, tag=tag, name=name, body=body)
-
     try:
-        if provider == "gemini":
-            raw = _call_gemini(prompt, api_key)
-        elif provider == "openai":
-            raw = _call_openai(prompt, api_key)
-        elif provider == "mistral":
-            raw = _call_mistral(prompt, api_key)
-        else:
-            raw = _call_groq(prompt, api_key)
-
-        data = json.loads(raw)
+        data = json.loads(_call_mistral(prompt, api_key))
         result = AnalysisResult(**data)
         return result.model_dump(), None
     except ValidationError as e:
@@ -153,11 +82,10 @@ def analyse_dbt_package_release(
     stale: bool = False,
     use_heuristics: bool = False,
     api_key: str = "",
-    provider: str = "mistral",
 ) -> tuple[dict[str, object] | None, str | None]:
     """Analyse a dbt package release.
 
-    stale=True: repo has no release in >1 year — skip LLM, return README summary only.
+    stale=True: no release in >1 year — skip LLM, return README summary only.
     use_heuristics=True: rule-based analysis, no LLM call (for testing).
     """
     from src.fetcher import filter_trivial_changes, heuristic_dbt_analysis
@@ -193,16 +121,7 @@ def analyse_dbt_package_release(
         repo=repo, tag=tag, name=name, readme=readme[:2000], body=body
     )
     try:
-        if provider == "mistral":
-            raw = _call_mistral(prompt, api_key)
-        elif provider == "openai":
-            raw = _call_openai(prompt, api_key)
-        elif provider == "gemini":
-            raw = _call_gemini(prompt, api_key)
-        else:
-            raw = _call_groq(prompt, api_key)
-
-        data = json.loads(raw)
+        data = json.loads(_call_mistral(prompt, api_key))
         raw_kc = data.get("key_changes", [])
         data["key_changes"] = filter_trivial_changes(raw_kc if isinstance(raw_kc, list) else [])
         result_obj = DbtPackageAnalysisResult(**data)

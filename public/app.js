@@ -1,6 +1,9 @@
 /* git-release digest — Bento Grid Edition */
 'use strict';
 
+const _VALID_SEV = new Set(['critical', 'high', 'medium', 'low', 'none', 'unknown']);
+function safeSev(s) { return _VALID_SEV.has(s) ? s : 'none'; }
+
 // R2 public URL (CORS configured in Cloudflare dashboard)
 const R2_BASE = 'https://pub-d7a866e02d744f3fb57bc3859858a5df.r2.dev';
 const MANIFEST_URL = `${R2_BASE}/manifest.json`;
@@ -44,7 +47,7 @@ function openDrawer(record) {
   document.getElementById('drawer-repo').textContent = record.repo.split('/')[1].toUpperCase();
   const sevEl = document.getElementById('drawer-sev');
   sevEl.textContent = sev;
-  sevEl.className = `sev sev-${sev}`;
+  sevEl.className = `sev sev-${safeSev(sev)}`;
 
   document.getElementById('drawer-title').textContent = record.name || record.tag;
   document.getElementById('drawer-date').textContent  = formatDate(record.published_at);
@@ -286,7 +289,7 @@ function renderGrid(records) {
   data-severity="${esc(severity)}">
   <div class="card-header">
     <span class="card-repo">${esc(r.repo.split('/')[1])}</span>
-    <span class="sev sev-${severity}">${severity}</span>
+    <span class="sev sev-${safeSev(severity)}">${esc(severity)}</span>
   </div>
   <h3 class="card-title">${esc(r.name || r.tag)}</h3>
   <p class="card-date">${formatDate(r.published_at)}</p>
