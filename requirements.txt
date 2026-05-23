@@ -1,6 +1,7 @@
 flask==3.*
 gunicorn==23.*
 boto3==1.*
+google-auth==2.*
 google-cloud-secret-manager==2.*
 mistralai>=1.0.0
 requests==2.*

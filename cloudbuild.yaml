@@ -44,7 +44,10 @@ steps:
       - --allow-unauthenticated
       - --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com
       - --memory=512Mi
+      - --cpu=1
       - --timeout=300
+      - --concurrency=1
+      - --max-instances=1
       - --project=git-release-496817
 
 images:
