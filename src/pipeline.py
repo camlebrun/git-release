@@ -123,6 +123,10 @@ def run_pipeline(
                     logger.error("❌ Auth error — stopping pipeline: %s", e)
                     raise  # propagate up, stop everything
 
+                if analysis is None:
+                    logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
+                    continue
+
                 record = _build_record(release, repo, analysis, error, [], group)
                 put_release(s3, bucket, record)
                 new_count += 1
