@@ -9,10 +9,11 @@ from typing import Any
 
 import requests as _http
 
-from src.analyser import AuthError, analyse_release
+from src.analyser import AuthError, analyse_dbt_package_release, analyse_release
 from src.digest import get_digest
-from src.fetcher import backfill_releases, get_new_releases
+from src.fetcher import backfill_releases, fetch_readme, get_new_releases
 from src.security_advisories import analyse_advisory, fetch_advisories
+from src.semver import parse_semver
 from src.store import (
     get_advisory_cursor,
     get_cursor,
@@ -82,6 +83,28 @@ def _build_record(
     }
 
 
+def _is_stale(releases: list[dict[str, Any]]) -> bool:
+    """True if the most recent release is older than 1 year."""
+    if not releases:
+        return True
+    latest = max((str(r.get("published_at", "")) for r in releases), default="")
+    if not latest:
+        return True
+    try:
+        pub = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+        return (datetime.now(timezone.utc) - pub).days > 365
+    except ValueError:
+        return False
+
+
+def _should_store_dbt_release(analysis: dict[str, Any], release: dict[str, Any]) -> bool:
+    """For dbt packages: store patches only if prod-breaking; always store minor/major."""
+    sv = parse_semver(str(release.get("tag_name", "")))
+    if sv.valid and sv.patch > 0:
+        return bool(analysis.get("is_prod_breaking_bug", False))
+    return True
+
+
 def run_pipeline(
     s3: Any,
     bucket: str,
@@ -90,6 +113,7 @@ def run_pipeline(
     llm_provider: str = "groq",
     llm_delay_s: float = 0.0,
     email_function_url: str | None = None,
+    use_heuristics: bool = False,
 ) -> dict[str, Any]:
     run_start = datetime.now(timezone.utc).isoformat()
     repos = load_repos()
@@ -101,23 +125,31 @@ def run_pipeline(
         min_version = repo_cfg.get("min_version")
         stable_only = repo_cfg.get("stable_only", False)
         minor_only = repo_cfg.get("minor_only", False)
+        repo_type = repo_cfg.get("type", "release")
+        is_dbt_package = repo_type == "dbt_package"
         owner, name = repo.split("/", 1)
         try:
             cursor = get_cursor(s3, bucket, owner, name)
             if cursor is None:
                 releases = backfill_releases(
-                    owner, name, github_token, min_version, bool(stable_only), bool(minor_only)
+                    owner,
+                    name,
+                    github_token,
+                    min_version,
+                    bool(stable_only),
+                    minor_only=False if is_dbt_package else bool(minor_only),
                 )
                 logger.info("[%s] backfill %d releases (min=%s)", repo, len(releases), min_version)
             else:
                 releases = get_new_releases(owner, name, cursor, github_token)
-                if minor_only:
-                    from src.semver import parse_semver
-
+                if minor_only and not is_dbt_package:
                     releases = [
                         r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0
                     ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
+
+            readme = fetch_readme(owner, name, github_token) if is_dbt_package else ""
+            stale = _is_stale(releases) if is_dbt_package else False
 
             new_count = 0
             latest_published_at = cursor
@@ -130,15 +162,30 @@ def run_pipeline(
                 if llm_delay_s > 0 and new_count > 0:
                     time.sleep(llm_delay_s)
                 try:
-                    analysis, error = analyse_release(
-                        {**release, "repo": repo}, llm_key, llm_provider
-                    )
+                    if is_dbt_package:
+                        analysis, error = analyse_dbt_package_release(
+                            {**release, "repo": repo},
+                            readme,
+                            stale=stale,
+                            use_heuristics=use_heuristics,
+                            api_key=llm_key,
+                            provider=llm_provider,
+                        )
+                    else:
+                        analysis, error = analyse_release(
+                            {**release, "repo": repo}, llm_key, llm_provider
+                        )
                 except AuthError as e:
                     logger.error("❌ Auth error — stopping pipeline: %s", e)
-                    raise  # propagate up, stop everything
+                    raise
 
                 if analysis is None:
                     logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
+                    continue
+
+                if is_dbt_package and not _should_store_dbt_release(analysis, release):
+                    logger.info("[%s] skipping patch %s — not prod-breaking", repo, tag)
+                    latest_published_at = str(release.get("published_at", ""))
                     continue
 
                 record = _build_record(release, repo, analysis, error, [], group)

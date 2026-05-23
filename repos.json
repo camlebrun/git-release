@@ -5,5 +5,11 @@
   {"repo": "duckdb/dbt-duckdb",       "group": "dbt-adapters", "min_version": "1.0.0",  "stable_only": true, "minor_only": true},
   {"repo": "dagster-io/dagster",       "group": "orchestration","min_version": "1.13.0", "stable_only": true, "minor_only": true},
   {"repo": "kestra-io/kestra",         "group": "orchestration","min_version": "1.0.0",  "stable_only": true, "minor_only": true},
-  {"repo": "apache/airflow",           "group": "orchestration","min_version": "3.0.0",  "stable_only": true, "minor_only": true}
+  {"repo": "apache/airflow",           "group": "orchestration","min_version": "3.0.0",  "stable_only": true, "minor_only": true},
+
+  {"repo": "dbt-labs/dbt-utils",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
+  {"repo": "calogica/dbt-expectations",    "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
+  {"repo": "brooklyn-data/dbt_artifacts",  "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
+  {"repo": "elementary-data/elementary",   "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
+  {"repo": "sodadata/soda-core",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true}
 ]

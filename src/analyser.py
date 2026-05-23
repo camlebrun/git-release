@@ -19,9 +19,19 @@ from src.config import (
     OPENAI_BASE_URL,
     OPENAI_MODEL,
 )
+from src.prompts.dbt_package_analysis import DBT_PACKAGE_ANALYSIS_PROMPT
 from src.prompts.release_analysis import RELEASE_ANALYSIS_PROMPT
 
 logger = logging.getLogger(__name__)
+
+
+class DbtPackageAnalysisResult(BaseModel):
+    purpose: str
+    summary: str
+    key_changes: list[str] = []
+    is_prod_breaking_bug: bool
+    severity: str
+    tags: list[str]
 
 
 class AnalysisResult(BaseModel):
@@ -134,4 +144,72 @@ def analyse_release(
         return None, str(e)
     except Exception as e:
         logger.error("LLM call failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+
+
+def analyse_dbt_package_release(
+    release: dict[str, object],
+    readme: str,
+    stale: bool = False,
+    use_heuristics: bool = False,
+    api_key: str = "",
+    provider: str = "mistral",
+) -> tuple[dict[str, object] | None, str | None]:
+    """Analyse a dbt package release.
+
+    stale=True: repo has no release in >1 year — skip LLM, return README summary only.
+    use_heuristics=True: rule-based analysis, no LLM call (for testing).
+    """
+    from src.fetcher import filter_trivial_changes, heuristic_dbt_analysis
+
+    repo = str(release.get("repo", ""))
+    tag = str(release.get("tag_name", ""))
+    name = str(release.get("name", tag))
+    body = str(release.get("body", ""))[:4000]
+
+    if stale:
+        purpose = ""
+        for para in readme.split("\n\n"):
+            clean = para.strip().lstrip("#").strip()
+            if len(clean) > 40 and not clean.startswith("!"):
+                purpose = clean[:300]
+                break
+        return {
+            "purpose": purpose or f"{repo} dbt package.",
+            "summary": f"No release in over a year. Last tag: {tag}.",
+            "key_changes": [],
+            "is_prod_breaking_bug": False,
+            "severity": "none",
+            "tags": ["docs-only"],
+        }, None
+
+    if use_heuristics:
+        result = heuristic_dbt_analysis(release, readme)
+        kc = result.get("key_changes", [])
+        result["key_changes"] = filter_trivial_changes(kc if isinstance(kc, list) else [])
+        return result, None
+
+    prompt = DBT_PACKAGE_ANALYSIS_PROMPT.format(
+        repo=repo, tag=tag, name=name, readme=readme[:2000], body=body
+    )
+    try:
+        if provider == "mistral":
+            raw = _call_mistral(prompt, api_key)
+        elif provider == "openai":
+            raw = _call_openai(prompt, api_key)
+        elif provider == "gemini":
+            raw = _call_gemini(prompt, api_key)
+        else:
+            raw = _call_groq(prompt, api_key)
+
+        data = json.loads(raw)
+        raw_kc = data.get("key_changes", [])
+        data["key_changes"] = filter_trivial_changes(raw_kc if isinstance(raw_kc, list) else [])
+        result_obj = DbtPackageAnalysisResult(**data)
+        return result_obj.model_dump(), None
+    except ValidationError as e:
+        logger.error("LLM dbt validation failed for %s@%s: %s", repo, tag, e)
+        return None, str(e)
+    except Exception as e:
+        logger.error("LLM dbt call failed for %s@%s: %s", repo, tag, e)
         return None, str(e)
