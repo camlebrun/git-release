@@ -14,7 +14,7 @@
 
 - [ ] `git init`, create `.gitignore` (`__pycache__/`, `*.pyc`, `.env.local`, `.venv/`)
 - [ ] `pyproject.toml`: configure `black`, `ruff`, `mypy` (strict), `pytest`
-- [ ] `requirements.txt`: `functions-framework`, `boto3`, `google-cloud-secret-manager`, `groq`, `requests`, `pydantic`
+- [ ] `requirements.txt`: `functions-framework`, `boto3`, `google-cloud-secret-manager`, `mistralai`, `requests`, `pydantic`
 - [ ] `requirements-dev.txt`: `pytest`, `pytest-mock`, `black`, `ruff`, `mypy`
 - [ ] `src/__init__.py`, `tests/__init__.py`
 - [ ] `Makefile` targets: `dev`, `test`, `lint`, `typecheck`, `deploy`
@@ -88,7 +88,7 @@
 
 ---
 
-### T-06 — Groq analyser
+### T-06 — Mistral analyser
 **Est.:** 1.5 h  
 **Depends on:** T-02
 
@@ -99,7 +99,7 @@
   - `analyse_release(release: dict, api_key: str) -> dict | None`
   - Pydantic `AnalysisResult` model for validation
   - On `ValidationError` or JSON decode error: log + return `None`
-- [ ] Write `tests/test_analyser.py` (mock `groq.Groq`):
+- [ ] Write `tests/test_analyser.py` (mock `mistralai.client.Mistral`):
   - Happy path: valid JSON parsed into `AnalysisResult`
   - Invalid JSON from model: returns `None`
   - Body with `"CVE-2026-12345"` → `cve_references` contains that string
@@ -145,13 +145,13 @@
 **Est.:** 1 h  
 **Depends on:** T-05, T-06, T-07
 
-- [ ] Implement `run_pipeline(bucket, groq_key, github_token)` in `src/main.py` per plan §3.9
+- [ ] Implement `run_pipeline(bucket, mistral_key, github_token)` in `src/main.py` per plan §3.9
 - [ ] Load `repos.json` from function directory at startup
 - [ ] Branch per repo: no cursor → `backfill_releases`, cursor exists → `get_new_releases`
 - [ ] Error isolation: per-repo try/except, logs error, continues
 - [ ] `set_run_status` after all repos processed
 
-**Acceptance:** local run with mocked GCS + GitHub (real Groq skipped) completes without raising; `run_status` dict returned.
+**Acceptance:** local run with mocked GCS + GitHub (real Mistral skipped) completes without raising; `run_status` dict returned.
 
 ---
 
@@ -222,7 +222,7 @@ curl -H "X-Trigger-Secret: dev" localhost:8080/trigger  # → 200 JSON
 
 ## Phase 5 — Integration & Hardening
 
-### T-13 — End-to-end smoke test with real Groq + GCS
+### T-13 — End-to-end smoke test with real Mistral + GCS
 **Est.:** 30 min  
 **Depends on:** T-12
 
@@ -243,7 +243,7 @@ curl -H "X-Trigger-Secret: dev" localhost:8080/trigger  # → 200 JSON
 **Depends on:** T-13
 
 - [ ] Add retry with exponential backoff (max 3 attempts) on GitHub 429 / 5xx in `src/fetcher.py`
-- [ ] Add `timeout=GROQ_TIMEOUT_S` to Groq SDK call; catch `groq.APITimeoutError` → return `None`
+- [ ] Add `timeout=MISTRAL_TIMEOUT_S` to Mistral SDK call; catch timeout error → return `None`
 - [ ] Add `timeout=GITHUB_TIMEOUT_S` to `requests.get` calls
 - [ ] `tests/test_fetcher.py`: mock 429 → assert retry → success
 - [ ] `tests/test_analyser.py`: mock timeout → assert returns `None`
@@ -258,7 +258,7 @@ curl -H "X-Trigger-Secret: dev" localhost:8080/trigger  # → 200 JSON
 
 - [ ] Create GCS bucket: `gcloud storage buckets create gs://git-release-496817-releases ...`
 - [ ] Create service account `git-release-sa`, grant `storage.objectAdmin` + `secretmanager.secretAccessor`
-- [ ] Create secrets in Secret Manager: `GROQ_API_KEY`, `GITHUB_TOKEN`, `TRIGGER_SECRET`
+- [ ] Create secrets in Secret Manager: `MISTRAL_API_KEY`, `GITHUB_TOKEN`, `TRIGGER_SECRET`
 - [ ] Deploy Cloud Function (commands from plan §3.13)
 - [ ] Create Cloud Scheduler job (commands from plan §3.13)
 - [ ] Manual trigger via `curl -H "X-Trigger-Secret: ..." https://...cloudfunctions.net/git-release/trigger`
@@ -283,7 +283,7 @@ curl -H "X-Trigger-Secret: dev" localhost:8080/trigger  # → 200 JSON
 **Depends on:** T-15
 
 - [ ] Replace `print()` with `logging.getLogger(__name__)` calls throughout (GCP Cloud Logging picks these up automatically)
-- [ ] Structured log fields: `repo`, `tag`, `new_releases`, `groq_duration_ms`, `error`
+- [ ] Structured log fields: `repo`, `tag`, `new_releases`, `mistral_duration_ms`, `error`
 - [ ] `/health` response includes `last_run_at`, `total_blobs` (from GCS list count), per-repo `{ last_fetched, new_count, error? }`
 - [ ] View logs: `gcloud functions logs read git-release --region=us-central1 --limit=50`
 

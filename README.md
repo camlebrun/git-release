@@ -2,7 +2,7 @@
 
 > Daily release intelligence for data & platform engineers.
 
-StackRadar fetches GitHub release notes across your tracked repos, analyses them with a Groq LLM, flags CVEs, and renders a bento-style digest — refreshed every morning at 06:00 UTC.
+StackRadar fetches GitHub release notes across your tracked repos, analyses them with a Mistral LLM, flags CVEs, and renders a bento-style digest — refreshed every morning at 06:00 UTC.
 
 ![CI](https://github.com/camlebrun/git-release/actions/workflows/ci.yml/badge.svg)
 
@@ -11,7 +11,7 @@ StackRadar fetches GitHub release notes across your tracked repos, analyses them
 ## What it does
 
 - **Fetches** new releases incrementally (cursor-based, no duplicate processing)
-- **Analyses** each release with `llama-3.3-70b-versatile` via Groq: summary, key changes, severity, CVE IDs, tags
+- **Analyses** each release with `mistral-small-latest` via Mistral: summary, key changes, severity, CVE IDs, tags
 - **Enriches** CVE IDs with CVSS scores from NIST NVD
 - **Stores** one JSON blob per release in Cloudflare R2
 - **Serves** a `/digest` API consumed by a static bento frontend on Cloudflare Pages
@@ -26,7 +26,7 @@ Cloud Scheduler (06:00 UTC)
     ▼
 GCP Cloud Run Job (Python 3.12)
     ├── GitHub API     →  fetch new releases (incremental; 2-major backfill on first run)
-    ├── Groq LLM       →  summary, key changes, CVE IDs, severity, tags
+    ├── Mistral LLM    →  summary, key changes, CVE IDs, severity, tags
     └── Cloudflare R2  →  store one JSON per release
          releases/{owner}/{repo}/{tag}.json
          meta/cursor/{owner}/{repo}.json
@@ -85,7 +85,7 @@ make dev
 
 | Variable | Required | Description |
 |---|---|---|
-| `GROQ_API_KEY` | Yes | [Groq](https://console.groq.com) API key |
+| `MISTRAL_API_KEY` | Yes | [Mistral](https://console.mistral.ai) API key |
 | `GITHUB_TOKEN` | No | GitHub PAT — raises rate limit from 60 to 5 000 req/hr |
 | `TRIGGER_SECRET` | Yes | Random string — protects the `/trigger` endpoint |
 | `R2_ACCESS_KEY_ID` | Yes | Cloudflare R2 API token ID |
