@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import base64
 import logging
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 import requests
 
@@ -277,3 +278,92 @@ def backfill_releases(
         valid = [(r, sv) for r, sv in valid if sv.patch == 0]
     valid.sort(key=lambda x: str(x[0]["published_at"]))
     return [r for r, _ in valid]
+
+
+# ---------------------------------------------------------------------------
+# Changelog-based fetcher (for repos with no GitHub releases, e.g. dbt-fusion)
+# ---------------------------------------------------------------------------
+
+_CHANGELOG_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+-preview\.\d+)$")
+_CHANGELOG_DATE_RE = re.compile(r"Released\s+(\w+ \d+, \d{4})")
+_MONTH_ABBR = {
+    "January": 1, "February": 2, "March": 3, "April": 4,
+    "May": 5, "June": 6, "July": 7, "August": 8,
+    "September": 9, "October": 10, "November": 11, "December": 12,
+}
+
+
+def _parse_changelog_date(text: str) -> str | None:
+    m = _CHANGELOG_DATE_RE.search(text)
+    if not m:
+        return None
+    try:
+        dt = datetime.strptime(m.group(1), "%B %d, %Y").replace(tzinfo=timezone.utc)
+        return dt.isoformat()
+    except ValueError:
+        return None
+
+
+def _changelog_anchor(version: str) -> str:
+    return "https://github.com/dbt-labs/dbt-fusion/blob/main/CHANGELOG.md#" + version.replace(".", "")
+
+
+def fetch_changelog_releases(
+    owner: str,
+    repo: str,
+    token: str | None = None,
+    since: str | None = None,
+) -> list[dict[str, object]]:
+    """Parse CHANGELOG.md from a GitHub repo and return release-like records.
+
+    Only keeps versions matching X.Y.Z-preview.N (no nightly, no beta).
+    Patch versions (Z > 0) are excluded.
+    """
+    url = f"{GITHUB_API_BASE}/repos/{owner}/{repo}/contents/CHANGELOG.md"
+    headers = {**_headers_base(token), "Accept": "application/vnd.github.raw+json"}
+    resp = requests.get(url, headers=headers, timeout=GITHUB_TIMEOUT_S)
+    if not resp.ok:
+        raise GitHubFetchError(resp.status_code, resp.text[:200])
+
+    raw = resp.text
+    since_dt = datetime.fromisoformat(since.replace("Z", "+00:00")) if since else None
+
+    sections = re.split(r"^## ", raw, flags=re.MULTILINE)
+    releases: list[dict[str, object]] = []
+
+    for section in sections:
+        lines = section.strip().splitlines()
+        if not lines:
+            continue
+        header = lines[0].strip()
+        if not _CHANGELOG_VERSION_RE.match(header):
+            continue
+
+        sv = parse_semver(header)
+        if sv.valid and sv.patch > 0:
+            continue
+
+        body = "\n".join(lines[1:]).strip()
+        published_at = _parse_changelog_date(body)
+        if published_at is None:
+            continue
+
+        if since_dt:
+            pub_dt = datetime.fromisoformat(published_at)
+            if pub_dt <= since_dt:
+                continue
+
+        releases.append({
+            "tag_name": header,
+            "name": header,
+            "body": body,
+            "published_at": published_at,
+            "html_url": _changelog_anchor(header),
+            "prerelease": True,
+            "draft": False,
+            "id": None,
+            "author": None,
+        })
+
+    releases.sort(key=lambda r: str(r["published_at"]))
+    return releases

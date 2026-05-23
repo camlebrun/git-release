@@ -11,7 +11,7 @@ import requests as _http
 
 from src.analyser import analyse_dbt_package_release, analyse_release
 from src.digest import get_digest
-from src.fetcher import backfill_releases, fetch_readme, get_new_releases
+from src.fetcher import backfill_releases, fetch_changelog_releases, fetch_readme, get_new_releases
 from src.security_advisories import analyse_advisory, fetch_advisories
 from src.semver import parse_semver
 from src.store import (
@@ -138,8 +138,13 @@ def _process_repos(
         owner, name = repo.split("/", 1)
 
         try:
+            source = repo_cfg.get("source", "github")
             cursor = get_cursor(s3, bucket, owner, name)
-            if cursor is None:
+
+            if source == "changelog":
+                releases = fetch_changelog_releases(owner, name, github_token, since=cursor)
+                logger.info("[%s] changelog: %d releases", repo, len(releases))
+            elif cursor is None:
                 releases = backfill_releases(
                     owner,
                     name,
