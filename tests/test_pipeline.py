@@ -114,7 +114,9 @@ def test_cursor_updated_after_storing_release(mock_s3: MagicMock) -> None:
     with (
         patch("src.pipeline.load_repos", return_value=[{"repo": "owner/repo"}]),
         patch("src.pipeline.get_cursor", return_value=None),
-        patch("src.pipeline.backfill_releases", return_value=[_make_release(published_at=published)]),  # noqa: E501
+        patch(
+            "src.pipeline.backfill_releases", return_value=[_make_release(published_at=published)]
+        ),  # noqa: E501
         patch("src.pipeline.release_exists", return_value=False),
         patch("src.pipeline.analyse_release", return_value=(_GOOD_ANALYSIS, None)),
         patch("src.pipeline.put_release"),

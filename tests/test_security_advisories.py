@@ -31,6 +31,7 @@ def _make_advisory(
 
 # ── fetch_advisories ────────────────────────────────────────────────────────
 
+
 def test_fetch_returns_normalised_advisories() -> None:
     raw = [_make_advisory()]
     with patch("src.security_advisories.requests.get", return_value=_mock_response(True, raw)):
@@ -64,9 +65,7 @@ def test_fetch_http_error_returns_empty() -> None:
 
 
 def test_fetch_network_error_returns_empty() -> None:
-    with patch(
-        "src.security_advisories.requests.get", side_effect=ConnectionError("timeout")
-    ):
+    with patch("src.security_advisories.requests.get", side_effect=ConnectionError("timeout")):
         result = fetch_advisories("owner", "repo")
     assert result == []
 

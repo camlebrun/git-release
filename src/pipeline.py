@@ -153,9 +153,7 @@ def _process_repos(
                 releases = get_new_releases(owner, name, cursor, github_token)
                 if minor_only and not is_dbt_package:
                     releases = [
-                        r
-                        for r in releases
-                        if parse_semver(str(r.get("tag_name", ""))).patch == 0
+                        r for r in releases if parse_semver(str(r.get("tag_name", ""))).patch == 0
                     ]
                 logger.info("[%s] incremental: %d new since %s", repo, len(releases), cursor)
 

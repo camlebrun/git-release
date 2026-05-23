@@ -62,9 +62,7 @@ def fetch_advisories(owner: str, repo: str, token: str | None = None) -> list[di
     return result
 
 
-def analyse_advisory(
-    advisory: dict[str, Any], api_key: str
-) -> dict[str, Any] | None:
+def analyse_advisory(advisory: dict[str, Any], api_key: str) -> dict[str, Any] | None:
     """Run LLM analysis on an advisory. Returns analysis dict or None on failure."""
     from src.analyser import call_llm
     from src.prompts.advisory_analysis import ADVISORY_ANALYSIS_PROMPT
