@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: deploy-email-digest
+  cancel-in-progress: false
+
 jobs:
   deploy-email-function:
     name: Deploy Cloud Function (email-digest)
