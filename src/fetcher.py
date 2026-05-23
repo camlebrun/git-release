@@ -90,6 +90,8 @@ def filter_trivial_changes(changes: list[str]) -> list[str]:
     """Remove trivial/cosmetic entries from a key_changes list."""
     result = []
     for c in changes:
+        if not isinstance(c, str):
+            continue
         low = c.lower()
         if any(p in low for p in _TRIVIAL_CHANGE_PATTERNS):
             continue

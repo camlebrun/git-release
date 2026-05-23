@@ -11,5 +11,5 @@
   {"repo": "calogica/dbt-expectations",    "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
   {"repo": "brooklyn-data/dbt_artifacts",  "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
   {"repo": "elementary-data/elementary",   "group": "dbt-packages", "type": "dbt_package", "stable_only": true},
-  {"repo": "sodadata/soda-core",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true}
+  {"repo": "sodadata/soda-core",           "group": "dbt-packages", "type": "dbt_package", "stable_only": true, "min_version": "4.0.0"}
 ]
