@@ -26,8 +26,8 @@ jobs:
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
           command: pages deploy dist/ --project-name=git-release --commit-dirty=true
 
-  deploy-function:
-    name: Deploy Cloud Function
+  deploy-email-function:
+    name: Deploy Cloud Function (email-digest)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -40,15 +40,15 @@ jobs:
 
       - name: Deploy Cloud Function
         run: |
-          gcloud functions deploy git-release \
+          gcloud functions deploy email-digest \
             --gen2 \
             --runtime=python312 \
-            --region=us-central1 \
-            --source=. \
-            --entry-point=main \
+            --region=europe-west9 \
+            --source=functions/email \
+            --entry-point=send_email \
             --trigger-http \
             --allow-unauthenticated \
             --service-account=git-release-sa@git-release-496817.iam.gserviceaccount.com \
             --memory=512MB \
-            --timeout=300s \
+            --timeout=120s \
             --project=git-release-496817
