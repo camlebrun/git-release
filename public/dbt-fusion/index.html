@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>dbt Fusion · StackRadar</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-row-1">
+      <div style="display:flex;align-items:center;gap:16px">
+        <a href="/" class="back-link">← StackRadar</a>
+        <h1>dbt Fusion</h1>
+      </div>
+      <input type="search" id="search" placeholder="Search releases…" autocomplete="off" />
+    </div>
+
+    <div class="header-row-2">
+      <div class="inline-filters" id="tag-filters">
+        <button class="chip active" data-tag="all">All <span class="badge" id="fusion-count"></span></button>
+      </div>
+
+      <div class="divider" id="tag-divider" style="display:none"></div>
+
+      <button class="chip active" id="fusion-latest-toggle">Latest only</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="pkg-rules-banner">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>
+        <strong>dbt Fusion</strong> is Rust-based dbt engine, currently in preview.
+        Releases sourced from <em>CHANGELOG.md</em> · minor releases only · patches excluded unless prod-breaking.
+      </span>
+    </div>
+    <div id="fusion-grid" class="bento-grid"></div>
+    <p id="empty-fusion" class="empty-state hidden">No releases match your filter.</p>
+    <p id="loading" class="loading">Loading releases…</p>
+  </main>
+
+  <!-- Detail drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+      <div class="drawer-meta">
+        <span id="drawer-repo" class="card-repo"></span>
+        <span id="drawer-sev" class="sev"></span>
+      </div>
+      <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <h2 id="drawer-title" class="drawer-title"></h2>
+      <p id="drawer-date" class="card-date"></p>
+      <p id="drawer-summary" class="drawer-summary"></p>
+      <div id="drawer-changes-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Key changes</h3>
+        <ul id="drawer-changes" class="card-changes drawer-changes"></ul>
+      </div>
+      <div id="drawer-tags-wrap" class="drawer-section hidden">
+        <div id="drawer-tags" class="tags"></div>
+      </div>
+      <div id="drawer-cve-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">CVE references</h3>
+        <div id="drawer-cves" class="drawer-cves"></div>
+      </div>
+      <a id="drawer-link" class="drawer-link" target="_blank" rel="noopener">
+        View changelog →
+      </a>
+    </div>
+  </aside>
+
+  <script type="module" src="/dbt-fusion/app.js"></script>
+</body>
+</html>

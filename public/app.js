@@ -249,7 +249,7 @@ async function loadDigest() {
     allRecords = Array.isArray(data) ? data : (data.releases ?? []);
     allAdvisories = Array.isArray(data) ? [] : (data.advisories ?? []);
     loading.classList.add('hidden');
-    const nonPkg = allRecords.filter(r => r.group !== 'dbt-packages');
+    const nonPkg = allRecords.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
     renderGrid(nonPkg);
     renderAdvisories(allAdvisories);
     updateCounts(nonPkg, allAdvisories);
