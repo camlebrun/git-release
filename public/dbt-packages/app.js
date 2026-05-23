@@ -5,6 +5,7 @@ const MANIFEST_URL = `${R2_BASE}/manifest.json`;
 
 let allPkgs = [];
 let activePkgType = 'all';
+let activePkgName = 'all';
 let pkgLatestOnly = true;
 
 const PKG_TYPE = {
@@ -44,11 +45,39 @@ async function loadPackages() {
     const records = Array.isArray(data) ? data : (data.releases ?? []);
     allPkgs = records.filter(r => r.group === 'dbt-packages');
     loading.classList.add('hidden');
+    buildNameFilters(allPkgs);
     render();
   } catch (err) {
     loading.className = 'empty-state';
     loading.textContent = `⚠ Failed to load: ${err.message}`;
   }
+}
+
+function buildNameFilters(pkgs) {
+  const slugs = [...new Set(pkgs.map(r => r.repo.split('/')[1]))].sort();
+  const container = document.getElementById('pkg-name-filters');
+  const divider   = document.getElementById('pkg-name-divider');
+
+  container.innerHTML = `<button class="chip active" data-pkgname="all">All</button>` +
+    slugs.map(s => `<button class="chip" data-pkgname="${esc(s)}">${esc(s)}</button>`).join('');
+
+  container.querySelectorAll('[data-pkgname]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      container.querySelectorAll('[data-pkgname]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      activePkgName = btn.dataset.pkgname;
+      // Reset type filter when picking a specific package
+      if (activePkgName !== 'all') {
+        document.querySelectorAll('[data-pkgtype]').forEach(b => b.classList.remove('active'));
+        document.querySelector('[data-pkgtype="all"]').classList.add('active');
+        activePkgType = 'all';
+      }
+      render();
+    });
+  });
+
+  // Show divider only when name filters are populated
+  divider.classList.toggle('hidden', slugs.length === 0);
 }
 
 function setupFilters() {
@@ -57,6 +86,11 @@ function setupFilters() {
       document.querySelectorAll('[data-pkgtype]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activePkgType = btn.dataset.pkgtype;
+      // Reset package name filter
+      activePkgName = 'all';
+      const nameContainer = document.getElementById('pkg-name-filters');
+      nameContainer.querySelectorAll('[data-pkgname]').forEach(b => b.classList.remove('active'));
+      nameContainer.querySelector('[data-pkgname="all"]')?.classList.add('active');
       render();
     });
   });
@@ -90,7 +124,9 @@ function render() {
 
   let filtered = pkgLatestOnly ? getLatestPerRepo(allPkgs) : [...allPkgs];
 
-  if (activePkgType !== 'all') {
+  if (activePkgName !== 'all') {
+    filtered = filtered.filter(r => r.repo.split('/')[1] === activePkgName);
+  } else if (activePkgType !== 'all') {
     filtered = filtered.filter(r => PKG_TYPE[r.repo.split('/')[1]] === activePkgType);
   }
 
