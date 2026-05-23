@@ -142,6 +142,17 @@ def run_pipeline(
         except Exception as e:
             logger.error("[%s] pipeline error: %s", repo, e)
             repo_status[repo] = {"ok": False, "error": str(e)}
+            if email_function_url:
+                try:
+                    import requests as _requests
+
+                    _requests.post(
+                        email_function_url.rstrip("/") + "/fail",
+                        json={"error": str(e), "repo": repo},
+                        timeout=15,
+                    )
+                except Exception:
+                    pass
 
     run_status = {
         "ran_at": datetime.now(timezone.utc).isoformat(),
