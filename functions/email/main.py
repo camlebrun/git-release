@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import smtplib
@@ -40,6 +41,7 @@ _ICON_URL = "https://pub-d7a866e02d744f3fb57bc3859858a5df.r2.dev/icon.png"
 
 # Module-level secret cache — loaded once per cold start
 _secrets: dict[str, str] = {}
+_icon_data_url: str | None = None
 
 
 def _get_secret(name: str) -> str:
