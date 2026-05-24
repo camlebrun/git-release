@@ -217,7 +217,10 @@ function updateCounts(records, advisories, pkgRecs, fusionRecs) {
     pkgBadge.title = `${pkgUnique} packages tracked · latest release per package`;
   }
   const fusionBadge = document.getElementById('fusion-count');
-  if (fusionBadge) fusionBadge.textContent = fusionRecs.length || '';
+  if (fusionBadge) {
+    fusionBadge.textContent = fusionRecs.length ? 1 : '';
+    fusionBadge.title = `1 latest release · ${fusionRecs.length} total in history`;
+  }
 }
 
 // ── Bento Grid ─────────────────────────────────────────────────────────────

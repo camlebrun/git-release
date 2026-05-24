@@ -61,8 +61,11 @@ function setCrossTabCounts(releases, advisories) {
   const nonPkg = releases.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
   if (el('release-count'))  el('release-count').textContent  = nonPkg.length || '';
   if (el('advisory-count')) el('advisory-count').textContent = advisories.length || '';
-  const fusionCount = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length;
-  if (el('fusion-count')) el('fusion-count').textContent = fusionCount || '';
+  const fusionTotal = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length;
+  if (el('fusion-count')) {
+    el('fusion-count').textContent = fusionTotal ? 1 : '';
+    el('fusion-count').title = `1 latest release · ${fusionTotal} total in history`;
+  }
 }
 
 function buildNameFilters(pkgs) {

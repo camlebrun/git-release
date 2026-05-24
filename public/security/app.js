@@ -71,7 +71,11 @@ async function loadAdvisories() {
       pkgBadge.title = `${pkgUnique} packages tracked · latest release per package`;
     }
     const fusionBadge = document.getElementById('fusion-count');
-    if (fusionBadge) fusionBadge.textContent = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length || '';
+    if (fusionBadge) {
+      const fusionTotal = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length;
+      fusionBadge.textContent = fusionTotal ? 1 : '';
+      fusionBadge.title = `1 latest release · ${fusionTotal} total in history`;
+    }
     buildRepoFilters(allAdvisories);
     renderAll();
     applyFilters();
