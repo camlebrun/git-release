@@ -11,15 +11,40 @@ const MANIFEST_URL = `${R2_BASE}/manifest.json`;
 let allRecords = [];
 let allAdvisories = [];
 let activeSev = 'all';
-let activeTag = 'all';
+let activeGroup = 'all';
 let activeRepo = 'all';
+
+const REPO_DISPLAY = {
+  'dagster-io/dagster':      'Dagster',
+  'kestra-io/kestra':        'Kestra',
+  'apache/airflow':          'Airflow',
+};
+
+const GROUP_MAP = {
+  'dbt-core':     ['dbt-core'],
+  'dbt-adapters': ['dbt-adapters'],
+  orchestration:  ['orchestration'],
+};
+
+const REPO_CHIPS = {
+  'dbt-adapters': [
+    { label: 'dbt-bigquery', repo: 'dbt-labs/dbt-bigquery' },
+    { label: 'dbt-trino',    repo: 'starburstdata/dbt-trino' },
+    { label: 'dbt-duckdb',   repo: 'duckdb/dbt-duckdb' },
+  ],
+  orchestration: [
+    { label: 'Dagster', repo: 'dagster-io/dagster' },
+    { label: 'Kestra',  repo: 'kestra-io/kestra' },
+    { label: 'Airflow', repo: 'apache/airflow' },
+  ],
+};
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupSearch();
   setupSevFilters();
-  setupTagFilter();
+  setupGroupChips();
   setupDrawer();
   loadDigest();
 });
@@ -45,7 +70,7 @@ function openDrawer(record) {
   const a   = record.analysis ?? {};
   const sev = a.severity ?? 'none';
 
-  document.getElementById('drawer-repo').textContent = record.repo.split('/')[1].toUpperCase();
+  document.getElementById('drawer-repo').textContent = REPO_DISPLAY[record.repo] ?? record.repo.split('/')[1];
   const sevEl = document.getElementById('drawer-sev');
   sevEl.textContent = sev;
   sevEl.className = `sev sev-${safeSev(sev)}`;
@@ -123,41 +148,71 @@ function setupSevFilters() {
   });
 }
 
-// ── Tag filter ─────────────────────────────────────────────────────────────
-function setupTagFilter() {
-  document.getElementById('tag-filter').addEventListener('change', e => {
-    activeTag = e.target.value;
+// ── Group chips ────────────────────────────────────────────────────────────
+function setupGroupChips() {
+  const container = document.getElementById('group-chips');
+  const sub = document.getElementById('repo-chips-sub');
+
+  const groups = [
+    { label: 'All',          key: 'all' },
+    { label: 'dbt-core',     key: 'dbt-core' },
+    { label: 'dbt-adapters', key: 'dbt-adapters' },
+    { label: 'Orchestration',key: 'orchestration' },
+  ];
+
+  container.innerHTML = groups.map(g =>
+    `<button class="chip${g.key === 'all' ? ' active' : ''}" data-group="${g.key}">${g.label}</button>`
+  ).join('');
+
+  container.addEventListener('click', e => {
+    const btn = e.target.closest('[data-group]');
+    if (!btn) return;
+    const key = btn.dataset.group;
+
+    if (key === activeGroup && key !== 'all') {
+      activeGroup = 'all';
+      activeRepo = 'all';
+      showRepoChips(null);
+    } else {
+      activeGroup = key;
+      activeRepo = 'all';
+      showRepoChips(key === 'all' ? null : key);
+    }
+
+    container.querySelectorAll('.chip').forEach(c =>
+      c.classList.toggle('active', c.dataset.group === activeGroup)
+    );
+    applyFilters();
+  });
+
+  sub.addEventListener('click', e => {
+    const btn = e.target.closest('[data-repo]');
+    if (!btn) return;
+    const repo = btn.dataset.repo;
+    activeRepo = repo === activeRepo ? 'all' : repo;
+    sub.querySelectorAll('.chip').forEach(c =>
+      c.classList.toggle('active', c.dataset.repo === activeRepo)
+    );
     applyFilters();
   });
 }
 
-function buildTagFilter(records) {
-  const tags = new Set();
-  records.forEach(r => (r.analysis?.tags ?? []).forEach(t => tags.add(t)));
-  const select = document.getElementById('tag-filter');
-  const sorted = [...tags].sort();
-  select.innerHTML = `<option value="all">All types</option>` +
-    sorted.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+function showRepoChips(group) {
+  const sub = document.getElementById('repo-chips-sub');
+  activeRepo = 'all';
+
+  if (!group || !REPO_CHIPS[group]) {
+    sub.classList.add('hidden');
+    sub.innerHTML = '';
+    return;
+  }
+
+  sub.innerHTML = REPO_CHIPS[group].map(r =>
+    `<button class="chip" data-repo="${r.repo}">${r.label}</button>`
+  ).join('');
+  sub.classList.remove('hidden');
 }
 
-// ── Group + sub-repo filters ───────────────────────────────────────────────
-const GROUP_LABELS = {
-  'dbt-core':     'dbt Core',
-  'dbt-adapters': 'dbt Adapters',
-  'orchestration':'Orchestration',
-};
-
-
-function buildRepoFilters(records) {
-  const groups = [...new Set(records.map(r => r.group ?? 'other'))].sort();
-  const select = document.getElementById('group-filter');
-  select.innerHTML = `<option value="all">All groups</option>` +
-    groups.map(g => `<option value="${esc(g)}">${esc(GROUP_LABELS[g] ?? g)}</option>`).join('');
-  select.addEventListener('change', e => {
-    activeRepo = e.target.value;
-    applyFilters();
-  });
-}
 
 // ── Filters ────────────────────────────────────────────────────────────────
 function applyFilters() {
@@ -167,13 +222,13 @@ function applyFilters() {
   let visibleCards = 0;
   cards.forEach(c => {
     const sevOk = activeSev === 'all' || c.dataset.severity === activeSev;
-    const tagOk = activeTag === 'all' || (c.dataset.tags || '').split(' ').includes(activeTag);
-    const groupOk = activeRepo === 'all' || c.dataset.group === activeRepo;
+    const groupOk = activeGroup === 'all' || (GROUP_MAP[activeGroup] ?? []).includes(c.dataset.group);
+    const repoOk = activeRepo === 'all' || c.dataset.repo === activeRepo;
     const searchOk = !q ||
       c.dataset.repo.toLowerCase().includes(q) ||
       c.dataset.tags.toLowerCase().includes(q) ||
       c.textContent.toLowerCase().includes(q);
-    const show = sevOk && tagOk && groupOk && searchOk;
+    const show = sevOk && groupOk && repoOk && searchOk;
     c.classList.toggle('hidden', !show);
     if (show) visibleCards++;
   });
@@ -209,8 +264,6 @@ async function loadDigest() {
     const lhRecs     = allRecords.filter(r => r.group === 'lakehouse' || r.repo === 'google/lakehouse');
     renderGrid(nonPkg);
     updateCounts(nonPkg, allAdvisories, pkgRecs, fusionRecs, bqRecs, lhRecs);
-    buildTagFilter(nonPkg);
-    buildRepoFilters(nonPkg);
   } catch (err) {
     loading.className = 'empty-state';
     loading.textContent = `⚠ Failed to load: ${err.message}`;
@@ -255,22 +308,27 @@ function renderGrid(records) {
   }
 
   grid.innerHTML = records.map((r, idx) => {
-    const a        = r.analysis ?? {};
-    const severity = a.severity ?? 'none';
-    const tags     = (a.tags ?? []).slice(0, 3);
-    const changes  = (a.key_changes ?? []).slice(0, 3);
+    const a          = r.analysis ?? {};
+    const severity   = a.severity ?? 'none';
+    const allTags    = a.tags ?? [];
+    const isPreRel   = allTags.includes('pre-release');
+    const tags       = allTags.filter(t => t !== 'pre-release').slice(0, 3);
+    const changes    = (a.key_changes ?? []).slice(0, 3);
 
     const changesList = changes.map(c => `<li>${renderInline(c)}</li>`).join('');
     const tagChips    = tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
+    const preRelBadge = isPreRel
+      ? `<span class="tag tag-prerelease">pre-release</span>`
+      : '';
 
     return `<article class="card" data-idx="${idx}"
   data-repo="${esc(r.repo)}"
   data-group="${esc(r.group ?? '')}"
-  data-tags="${esc(tags.join(' '))}"
+  data-tags="${esc(allTags.join(' '))}"
   data-severity="${esc(severity)}">
   <div class="card-header">
-    <span class="card-repo">${esc(r.repo.split('/')[1])}</span>
-    <span class="sev sev-${safeSev(severity)}">${esc(severity)}</span>
+    <span class="card-repo">${esc(REPO_DISPLAY[r.repo] ?? r.repo.split('/')[1])}</span>
+    <div style="display:flex;align-items:center;gap:6px;">${preRelBadge}<span class="sev sev-${safeSev(severity)}">${esc(severity)}</span></div>
   </div>
   <h3 class="card-title">${esc(r.name || r.tag)}</h3>
   <p class="card-date">${formatDate(r.published_at)}</p>

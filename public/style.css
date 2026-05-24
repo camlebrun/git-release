@@ -178,6 +178,20 @@ header h1 {
   align-items: center;
 }
 
+.chip-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.chip-sub {
+  flex-basis: 100%;
+  padding-left: 2px;
+  border-left: 2px solid rgba(139, 92, 246, 0.2);
+  margin-left: 2px;
+}
+
 #repo-filters-sub {
   flex-basis: 100%;
   padding-left: 2px;
@@ -195,7 +209,6 @@ header h1 {
   font-weight: 500;
   color: #71717a;
   transition: all 0.15s;
-  text-transform: capitalize;
 }
 
 .chip:hover {
@@ -291,8 +304,7 @@ main {
 .card-repo {
   font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.03em;
   color: #8b5cf6;
 }
 
@@ -417,6 +429,15 @@ main {
 .sev-medium   { background: var(--sev-med-bg);  color: var(--sev-med-fg); }
 .sev-low      { background: var(--sev-low-bg);  color: var(--sev-low-fg); }
 .sev-none     { background: var(--sev-none-bg); color: var(--sev-none-fg); }
+
+.tag-prerelease {
+  background: rgba(139, 92, 246, 0.1);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
 
 /* ── Advisory grid ── */
 .advisory-grid {
