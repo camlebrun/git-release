@@ -14,6 +14,8 @@ export default {
         dbtPackages: resolve('public', 'dbt-packages', 'index.html'),
         dbtFusion: resolve('public', 'dbt-fusion', 'index.html'),
         security: resolve('public', 'security', 'index.html'),
+        bigquery: resolve('public', 'bigquery', 'index.html'),
+        lakehouse: resolve('public', 'lakehouse', 'index.html'),
       },
     },
   },
