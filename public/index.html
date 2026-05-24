@@ -9,49 +9,38 @@
 </head>
 <body>
   <header>
-    <!-- Row 1: Title + Search -->
     <div class="header-row-1">
-      <h1>📡 StackRadar</h1>
+      <a href="/" class="brand-link">
+        <svg class="brand-icon" width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.35"/><circle cx="16" cy="16" r="8" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.55"/><circle cx="16" cy="16" r="4" stroke="currentColor" stroke-width="1.2" stroke-opacity="0.85"/><line x1="16" y1="4" x2="16" y2="28" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.25"/><line x1="4" y1="16" x2="28" y2="16" stroke="currentColor" stroke-width="0.8" stroke-opacity="0.25"/><line x1="16" y1="16" x2="25" y2="7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="22" cy="10" r="2" fill="currentColor"/></svg>
+        <span class="brand-text">StackRadar</span>
+      </a>
       <input type="search" id="search" placeholder="Search..." autocomplete="off" />
     </div>
 
-    <!-- Row 2: Tabs + Filters inline -->
     <div class="header-row-2">
-      <!-- Tabs -->
       <div class="tabs">
-        <button class="tab active" data-tab="digest">
-          Release Notes <span class="badge" id="digest-count"></span>
-        </button>
-        <a class="tab" href="/security/">
-          Security <span class="badge badge-cve" id="advisory-count"></span>
-        </a>
+        <button class="tab active" data-tab="digest">Release Notes <span class="badge" id="digest-count"></span></button>
+        <a class="tab" href="/security/">Security <span class="badge badge-cve" id="advisory-count"></span></a>
         <a class="tab" href="/dbt-packages/">dbt Packages</a>
         <a class="tab" href="/dbt-fusion/">dbt Fusion</a>
       </div>
 
       <div class="divider"></div>
 
-      <!-- Severity chips -->
-      <div class="inline-filters">
-        <button class="chip active" data-sev="all">All</button>
-        <button class="chip" data-sev="critical">critical</button>
-        <button class="chip" data-sev="high">high</button>
-        <button class="chip" data-sev="medium">medium</button>
-      </div>
+      <select id="sev-filter" class="tag-select">
+        <option value="all">All severities</option>
+        <option value="critical">Critical</option>
+        <option value="high">High</option>
+        <option value="medium">Medium</option>
+      </select>
 
-      <div class="divider"></div>
+      <select id="tag-filter" class="tag-select">
+        <option value="all">All types</option>
+      </select>
 
-      <!-- Tag dropdown -->
-      <div class="inline-filters">
-        <select id="tag-filter" class="tag-select">
-          <option value="all">All types</option>
-        </select>
-      </div>
-
-      <div class="divider"></div>
-
-      <!-- Group chips -->
-      <div class="inline-filters" id="repo-filters-inline"></div>
+      <select id="group-filter" class="tag-select">
+        <option value="all">All groups</option>
+      </select>
     </div>
   </header>
 
@@ -106,5 +95,6 @@
   </aside>
 
   <script type="module" src="app.js"></script>
+  <footer class="site-footer">Made by <a href="https://camillelebrun.fr" target="_blank" rel="noopener">Camille Lebrun</a></footer>
 </body>
 </html>

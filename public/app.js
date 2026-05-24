@@ -52,13 +52,13 @@ function openDrawer(record) {
 
   document.getElementById('drawer-title').textContent = record.name || record.tag;
   document.getElementById('drawer-date').textContent  = formatDate(record.published_at);
-  document.getElementById('drawer-summary').textContent = a.summary ?? '';
+  document.getElementById('drawer-summary').innerHTML = renderInline(a.summary ?? '');
 
   const changesWrap = document.getElementById('drawer-changes-wrap');
   const changesList = document.getElementById('drawer-changes');
   const changes = a.key_changes ?? [];
   if (changes.length) {
-    changesList.innerHTML = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    changesList.innerHTML = changes.map(c => `<li>${renderInline(c)}</li>`).join('');
     changesWrap.classList.remove('hidden');
   } else {
     changesWrap.classList.add('hidden');
@@ -117,13 +117,9 @@ function setupSearch() {
 
 // ── Severity filters ───────────────────────────────────────────────────────
 function setupSevFilters() {
-  document.querySelectorAll('.chip[data-sev]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.chip[data-sev]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeSev = btn.dataset.sev;
-      applyFilters();
-    });
+  document.getElementById('sev-filter').addEventListener('change', e => {
+    activeSev = e.target.value;
+    applyFilters();
   });
 }
 
@@ -154,20 +150,12 @@ const GROUP_LABELS = {
 
 function buildRepoFilters(records) {
   const groups = [...new Set(records.map(r => r.group ?? 'other'))].sort();
-  const container = document.getElementById('repo-filters-inline');
-
-  const groupButtons = groups.map(g =>
-    `<button class="chip" data-group="${esc(g)}">${esc(GROUP_LABELS[g] ?? g)}</button>`
-  ).join('');
-  container.innerHTML = `<button class="chip active" data-group="all">All</button>${groupButtons}`;
-
-  container.querySelectorAll('.chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeRepo = btn.dataset.group;
-      applyFilters();
-    });
+  const select = document.getElementById('group-filter');
+  select.innerHTML = `<option value="all">All groups</option>` +
+    groups.map(g => `<option value="${esc(g)}">${esc(GROUP_LABELS[g] ?? g)}</option>`).join('');
+  select.addEventListener('change', e => {
+    activeRepo = e.target.value;
+    applyFilters();
   });
 }
 
@@ -236,7 +224,7 @@ function renderGrid(records) {
     const tags     = (a.tags ?? []).slice(0, 3);
     const changes  = (a.key_changes ?? []).slice(0, 3);
 
-    const changesList = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    const changesList = changes.map(c => `<li>${renderInline(c)}</li>`).join('');
     const tagChips    = tags.map(t => `<span class="tag">${esc(t)}</span>`).join('');
 
     return `<article class="card" data-idx="${idx}"
@@ -250,7 +238,7 @@ function renderGrid(records) {
   </div>
   <h3 class="card-title">${esc(r.name || r.tag)}</h3>
   <p class="card-date">${formatDate(r.published_at)}</p>
-  <p class="card-summary">${esc(a.summary ?? '')}</p>
+  <p class="card-summary">${renderInline(a.summary ?? '')}</p>
   ${changesList ? `<ul class="card-changes">${changesList}</ul>` : ''}
   <div class="card-footer">
     ${tagChips ? `<div class="tags">${tagChips}</div>` : '<div></div>'}
@@ -287,6 +275,10 @@ function esc(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderInline(str) {
+  return esc(str).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
 function formatDate(iso) {

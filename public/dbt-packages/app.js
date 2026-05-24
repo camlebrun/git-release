@@ -6,6 +6,7 @@ const MANIFEST_URL = `${R2_BASE}/manifest.json`;
 let allPkgs = [];
 let activePkgType = 'all';
 let activePkgName = 'all';
+let activePkgSev  = 'all';
 let pkgLatestOnly = true;
 
 const PKG_TYPE = {
@@ -55,51 +56,34 @@ async function loadPackages() {
 
 function buildNameFilters(pkgs) {
   const slugs = [...new Set(pkgs.map(r => r.repo.split('/')[1]))].sort();
-  const container = document.getElementById('pkg-name-filters');
-  const divider   = document.getElementById('pkg-name-divider');
-
-  container.innerHTML = `<button class="chip active" data-pkgname="all">All</button>` +
-    slugs.map(s => `<button class="chip" data-pkgname="${esc(s)}">${esc(s)}</button>`).join('');
-
-  container.querySelectorAll('[data-pkgname]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      container.querySelectorAll('[data-pkgname]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activePkgName = btn.dataset.pkgname;
-      // Reset type filter when picking a specific package
-      if (activePkgName !== 'all') {
-        document.querySelectorAll('[data-pkgtype]').forEach(b => b.classList.remove('active'));
-        document.querySelector('[data-pkgtype="all"]').classList.add('active');
-        activePkgType = 'all';
-      }
-      render();
-    });
+  const select = document.getElementById('pkg-name-select');
+  select.innerHTML = `<option value="all">All packages</option>` +
+    slugs.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
+  select.addEventListener('change', e => {
+    activePkgName = e.target.value;
+    if (activePkgName !== 'all') {
+      document.getElementById('pkg-type-select').value = 'all';
+      activePkgType = 'all';
+    }
+    render();
   });
-
-  // Show divider only when name filters are populated
-  divider.classList.toggle('hidden', slugs.length === 0);
 }
 
 function setupFilters() {
-  document.querySelectorAll('[data-pkgtype]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-pkgtype]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activePkgType = btn.dataset.pkgtype;
-      // Reset package name filter
-      activePkgName = 'all';
-      const nameContainer = document.getElementById('pkg-name-filters');
-      nameContainer.querySelectorAll('[data-pkgname]').forEach(b => b.classList.remove('active'));
-      nameContainer.querySelector('[data-pkgname="all"]')?.classList.add('active');
-      render();
-    });
+  document.getElementById('pkg-type-select').addEventListener('change', e => {
+    activePkgType = e.target.value;
+    activePkgName = 'all';
+    document.getElementById('pkg-name-select').value = 'all';
+    render();
   });
 
-  const toggle = document.getElementById('pkg-latest-toggle');
-  toggle.addEventListener('click', () => {
-    pkgLatestOnly = !pkgLatestOnly;
-    toggle.textContent = pkgLatestOnly ? 'Latest only' : 'All versions';
-    toggle.classList.toggle('active', pkgLatestOnly);
+  document.getElementById('pkg-sev-select').addEventListener('change', e => {
+    activePkgSev = e.target.value;
+    render();
+  });
+
+  document.getElementById('pkg-latest-select').addEventListener('change', e => {
+    pkgLatestOnly = e.target.value === 'latest';
     render();
   });
 }
@@ -130,6 +114,10 @@ function render() {
     filtered = filtered.filter(r => PKG_TYPE[r.repo.split('/')[1]] === activePkgType);
   }
 
+  if (activePkgSev !== 'all') {
+    filtered = filtered.filter(r => (r.analysis?.severity ?? 'none') === activePkgSev);
+  }
+
   if (q) {
     filtered = filtered.filter(r =>
       r.repo.toLowerCase().includes(q) ||
@@ -139,10 +127,7 @@ function render() {
     );
   }
 
-  const uniqueRepos = new Set(allPkgs.map(r => r.repo)).size;
-  document.getElementById('pkg-count').textContent = pkgLatestOnly
-    ? uniqueRepos || ''
-    : allPkgs.length || '';
+  document.getElementById('pkg-count').textContent = filtered.length || '';
 
   const grid = document.getElementById('pkg-grid');
   const empty = document.getElementById('empty-pkg');
@@ -167,7 +152,7 @@ function render() {
     const isDeprecated = r.deprecated === true;
 
     const tagChips    = tags.slice(0, 2).map(t => `<span class="tag">${esc(t)}</span>`).join('');
-    const changesList = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    const changesList = changes.map(c => `<li>${renderInline(c)}</li>`).join('');
 
     const shortDesc = PKG_DESC[slug] ?? '';
 
@@ -189,7 +174,7 @@ function render() {
   </div>
   <h3 class="card-title">${esc(r.name || r.tag)}</h3>
   <p class="card-date">${formatDate(r.published_at)}</p>
-  <p class="card-summary">${esc(a.summary ?? '')}</p>
+  <p class="card-summary">${renderInline(a.summary ?? '')}</p>
   ${changesList ? `<ul class="card-changes">${changesList}</ul>` : ''}
   <div class="card-footer">
     ${tagChips ? `<div class="tags">${tagChips}</div>` : '<div></div>'}
@@ -275,7 +260,7 @@ function openDrawer(record) {
   const a   = record.analysis ?? {};
   const sev = a.severity ?? 'none';
 
-  document.getElementById('drawer-repo').textContent = record.repo.split('/')[1].toUpperCase();
+  document.getElementById('drawer-repo').textContent = record.repo.split('/')[1];
   const sevEl = document.getElementById('drawer-sev');
   sevEl.textContent = sev;
   sevEl.className = `sev sev-${sev}`;
@@ -309,13 +294,13 @@ function openDrawer(record) {
     purposeWrap.classList.add('hidden');
   }
 
-  document.getElementById('drawer-summary').textContent = a.summary ?? '';
+  document.getElementById('drawer-summary').innerHTML = renderInline(a.summary ?? '');
 
   const changesWrap = document.getElementById('drawer-changes-wrap');
   const changesList = document.getElementById('drawer-changes');
   const changes = a.key_changes ?? [];
   if (changes.length) {
-    changesList.innerHTML = changes.map(c => `<li>${esc(c)}</li>`).join('');
+    changesList.innerHTML = changes.map(c => `<li>${renderInline(c)}</li>`).join('');
     changesWrap.classList.remove('hidden');
   } else {
     changesWrap.classList.add('hidden');
@@ -365,6 +350,10 @@ function esc(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function renderInline(str) {
+  return esc(str).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
 
 function formatDate(iso) {
