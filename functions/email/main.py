@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import json
 import logging
 import smtplib
@@ -37,9 +36,10 @@ _SEV_FG = {
 
 _TEMPLATES = Path(__file__).parent / "templates"
 
+_ICON_URL = "https://pub-d7a866e02d744f3fb57bc3859858a5df.r2.dev/icon.png"
+
 # Module-level secret cache — loaded once per cold start
 _secrets: dict[str, str] = {}
-_icon_data_url: str | None = None
 
 
 def _get_secret(name: str) -> str:
@@ -62,21 +62,6 @@ def _safe_text(s: str) -> str:
         .replace("\u2014", "-")
     )
 
-
-def _get_icon_data_url() -> str:
-    global _icon_data_url
-    if _icon_data_url is not None:
-        return _icon_data_url
-
-    icon_path = Path(__file__).parent / "icon.png"
-    if not icon_path.exists():
-        logger.warning("Email icon not found at %s", icon_path)
-        _icon_data_url = ""
-        return _icon_data_url
-
-    data = base64.b64encode(icon_path.read_bytes()).decode("ascii")
-    _icon_data_url = f"data:image/png;base64,{data}"
-    return _icon_data_url
 
 
 def _render_card(r: dict[str, Any]) -> str:
@@ -116,7 +101,7 @@ def _build_html(releases: list[dict[str, Any]]) -> str:
         tpl.replace("{{count}}", str(count))
         .replace("{{count_plural}}", "s" if count > 1 else "")
         .replace("{{cards}}", cards)
-        .replace("{{icon_data_url}}", _get_icon_data_url())
+        .replace("{{icon_data_url}}", _ICON_URL)
     )
 
 
