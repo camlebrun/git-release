@@ -1,7 +1,7 @@
 [
   {"repo": "google/bigquery",  "group": "bigquery",  "source": "gcp_docs", "display_name": "BigQuery",  "docs_url": "https://docs.cloud.google.com/bigquery/docs/release-notes.md.txt",  "docs_base_url": "https://cloud.google.com/bigquery/docs/release-notes",  "since_date": "2026-01-01"},
   {"repo": "google/lakehouse", "group": "lakehouse", "source": "gcp_docs", "display_name": "Lakehouse", "docs_url": "https://docs.cloud.google.com/lakehouse/docs/release-notes.md.txt", "docs_base_url": "https://cloud.google.com/lakehouse/docs/release-notes", "since_date": "2026-01-01"},
-  {"repo": "dbt-labs/dbt-core",       "group": "dbt-core",     "min_version": "1.10.0", "stable_only": true, "minor_only": true},
+  {"repo": "dbt-labs/dbt-core",       "group": "dbt-core",     "min_version": "1.10.0", "minor_only": true},
   {"repo": "dbt-labs/dbt-fusion",     "group": "dbt-fusion",   "source": "changelog"},
   {"repo": "dbt-labs/dbt-bigquery",   "group": "dbt-adapters", "min_version": "1.0.0",  "stable_only": true, "minor_only": true},
   {"repo": "starburstdata/dbt-trino", "group": "dbt-adapters", "min_version": "1.0.0",  "stable_only": true, "minor_only": true},
