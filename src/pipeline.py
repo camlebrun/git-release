@@ -89,6 +89,27 @@ _VALID_TAGS = frozenset(
         "config-change",
         "dependency-update",
         "refactor",
+        "pre-release",
+    }
+)
+
+_GCP_VALID_TAGS = frozenset(
+    {
+        "breaking",
+        "security",
+        "performance",
+        "cost-optimization",
+        "ai-ml",
+        "graph-db",
+        "data-transfer",
+        "sql-syntax",
+        "iam-governance",
+        "ga-migration",
+        # Lakehouse-specific
+        "iceberg",
+        "catalog",
+        "data-ingestion",
+        "open-format",
     }
 )
 
@@ -158,6 +179,12 @@ def _post_process_analysis(
     elif not is_dbt_package:
         raw = analysis.get("tags", [])
         analysis = {**analysis, "tags": _normalize_tags(raw if isinstance(raw, list) else [])}
+
+    # Inject pre-release tag when the GitHub release is marked as a pre-release
+    if release.get("prerelease"):
+        tags = analysis.get("tags", [])
+        if "pre-release" not in tags:
+            analysis = {**analysis, "tags": ["pre-release"] + list(tags)}
 
     # Severity floor only for standard GitHub releases (not preview/changelog/dbt-package)
     if source == "github" and not is_dbt_package:
