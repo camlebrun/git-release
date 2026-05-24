@@ -113,6 +113,26 @@ _GCP_VALID_TAGS = frozenset(
     }
 )
 
+_GCP_VALID_TAGS = frozenset(
+    {
+        "breaking",
+        "security",
+        "performance",
+        "cost-optimization",
+        "ai-ml",
+        "graph-db",
+        "data-transfer",
+        "sql-syntax",
+        "iam-governance",
+        "ga-migration",
+        # Lakehouse-specific
+        "iceberg",
+        "catalog",
+        "data-ingestion",
+        "open-format",
+    }
+)
+
 
 def _normalize_tags(tags: list[str]) -> list[str]:
     seen: set[str] = set()
