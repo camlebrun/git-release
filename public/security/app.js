@@ -64,6 +64,14 @@ async function loadAdvisories() {
     const releases = Array.isArray(data) ? data : (data.releases ?? []);
     const nonPkg = releases.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
     document.getElementById('release-count').textContent = nonPkg.length || '';
+    const pkgBadge = document.getElementById('pkg-count');
+    if (pkgBadge) {
+      const pkgUnique = new Set(releases.filter(r => r.group === 'dbt-packages').map(r => r.repo)).size;
+      pkgBadge.textContent = pkgUnique || '';
+      pkgBadge.title = `${pkgUnique} packages tracked · latest release per package`;
+    }
+    const fusionBadge = document.getElementById('fusion-count');
+    if (fusionBadge) fusionBadge.textContent = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length || '';
     buildRepoFilters(allAdvisories);
     renderAll();
     applyFilters();

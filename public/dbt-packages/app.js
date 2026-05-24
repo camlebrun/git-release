@@ -45,13 +45,24 @@ async function loadPackages() {
     const data = await resp.json();
     const records = Array.isArray(data) ? data : (data.releases ?? []);
     allPkgs = records.filter(r => r.group === 'dbt-packages');
+    const advisories = Array.isArray(data) ? [] : (data.advisories ?? []);
     loading.classList.add('hidden');
+    setCrossTabCounts(records, advisories);
     buildNameFilters(allPkgs);
     render();
   } catch (err) {
     loading.className = 'empty-state';
     loading.textContent = `⚠ Failed to load: ${err.message}`;
   }
+}
+
+function setCrossTabCounts(releases, advisories) {
+  const el = id => document.getElementById(id);
+  const nonPkg = releases.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
+  if (el('release-count'))  el('release-count').textContent  = nonPkg.length || '';
+  if (el('advisory-count')) el('advisory-count').textContent = advisories.length || '';
+  const fusionCount = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length;
+  if (el('fusion-count')) el('fusion-count').textContent = fusionCount || '';
 }
 
 function buildNameFilters(pkgs) {

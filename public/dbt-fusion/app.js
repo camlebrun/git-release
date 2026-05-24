@@ -30,12 +30,26 @@ async function loadReleases() {
     allReleases = records.filter(r =>
       r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion'
     );
+    const advisories = Array.isArray(data) ? [] : (data.advisories ?? []);
     loading.classList.add('hidden');
+    setCrossTabCounts(records, advisories);
     buildTagFilters(allReleases);
     render();
   } catch (err) {
     loading.className = 'empty-state';
     loading.textContent = `⚠ Failed to load: ${err.message}`;
+  }
+}
+
+function setCrossTabCounts(releases, advisories) {
+  const el = id => document.getElementById(id);
+  const nonPkg = releases.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
+  if (el('release-count'))  el('release-count').textContent  = nonPkg.length || '';
+  if (el('advisory-count')) el('advisory-count').textContent = advisories.length || '';
+  const pkgUnique = new Set(releases.filter(r => r.group === 'dbt-packages').map(r => r.repo)).size;
+  if (el('pkg-count')) {
+    el('pkg-count').textContent = pkgUnique || '';
+    el('pkg-count').title = `${pkgUnique} packages tracked · latest release per package`;
   }
 }
 
@@ -96,8 +110,9 @@ function render() {
     );
   }
 
+
   const countEl = document.getElementById('fusion-count');
-  if (countEl) countEl.textContent = latestOnly ? (allReleases.length ? '1' : '') : (allReleases.length || '');
+  if (countEl) countEl.textContent = filtered.length || '';
 
   const grid = document.getElementById('fusion-grid');
   const empty = document.getElementById('empty-fusion');

@@ -195,8 +195,10 @@ async function loadDigest() {
     allAdvisories = Array.isArray(data) ? [] : (data.advisories ?? []);
     loading.classList.add('hidden');
     const nonPkg = allRecords.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
+    const pkgRecs    = allRecords.filter(r => r.group === 'dbt-packages');
+    const fusionRecs = allRecords.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion');
     renderGrid(nonPkg);
-    updateCounts(nonPkg, allAdvisories);
+    updateCounts(nonPkg, allAdvisories, pkgRecs, fusionRecs);
     buildTagFilter(nonPkg);
     buildRepoFilters(nonPkg);
   } catch (err) {
@@ -205,9 +207,17 @@ async function loadDigest() {
   }
 }
 
-function updateCounts(records, advisories) {
+function updateCounts(records, advisories, pkgRecs, fusionRecs) {
   document.getElementById('digest-count').textContent = records.length || '';
   document.getElementById('advisory-count').textContent = advisories.length || '';
+  const pkgBadge = document.getElementById('pkg-count');
+  if (pkgBadge) {
+    const pkgUnique = new Set(pkgRecs.map(r => r.repo)).size;
+    pkgBadge.textContent = pkgUnique || '';
+    pkgBadge.title = `${pkgUnique} packages tracked · latest release per package`;
+  }
+  const fusionBadge = document.getElementById('fusion-count');
+  if (fusionBadge) fusionBadge.textContent = fusionRecs.length || '';
 }
 
 // ── Bento Grid ─────────────────────────────────────────────────────────────
