@@ -12,6 +12,8 @@ export default {
       input: {
         main: resolve('public', 'index.html'),
         dbtPackages: resolve('public', 'dbt-packages', 'index.html'),
+        dbtFusion: resolve('public', 'dbt-fusion', 'index.html'),
+        security: resolve('public', 'security', 'index.html'),
       },
     },
   },

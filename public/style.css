@@ -64,6 +64,11 @@ header h1 {
   margin: 0;
 }
 
+.brand-link {
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
 #search {
   flex: 1;
   max-width: 400px;
@@ -107,6 +112,7 @@ header h1 {
   display: flex;
   align-items: center;
   gap: 5px;
+  text-decoration: none;
 }
 
 .tab:hover {
@@ -183,6 +189,31 @@ header h1 {
   background: rgba(139, 92, 246, 0.1);
   border-color: rgba(139, 92, 246, 0.2);
   color: #8b5cf6;
+}
+
+/* ── Tag select ── */
+.tag-select {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #71717a;
+  outline: none;
+  transition: all 0.15s;
+  height: 26px;
+}
+
+.tag-select:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  color: var(--text);
+}
+
+.tag-select:focus {
+  border-color: var(--accent);
+  color: var(--text);
 }
 
 /* ── Main content ── */
@@ -413,6 +444,7 @@ main {
   font-family: "SF Mono", "Fira Code", monospace;
   font-weight: 700;
   color: #8b5cf6;
+  white-space: nowrap;
 }
 
 .advisory-cve {
@@ -424,6 +456,7 @@ main {
   padding: 2px 8px;
   border-radius: 4px;
   border: 1px solid rgba(139, 92, 246, 0.2);
+  white-space: nowrap;
 }
 
 .advisory-title {

@@ -64,6 +64,8 @@ def fetch_advisories(owner: str, repo: str, token: str | None = None) -> list[di
 
 def analyse_advisory(advisory: dict[str, Any], api_key: str) -> dict[str, Any] | None:
     """Run LLM analysis on an advisory. Returns analysis dict or None on failure."""
+    from datetime import datetime, timezone
+
     from src.analyser import call_llm
     from src.prompts.advisory_analysis import ADVISORY_ANALYSIS_PROMPT
 
@@ -73,7 +75,10 @@ def analyse_advisory(advisory: dict[str, Any], api_key: str) -> dict[str, Any] |
         cve_id=advisory.get("cve_id", "N/A"),
         severity=advisory.get("severity", ""),
         summary=advisory.get("summary", ""),
+        published_at=advisory.get("published_at", "unknown"),
+        updated_at=advisory.get("updated_at", "unknown"),
         description=(advisory.get("description") or "")[:3000],
+        today=datetime.now(timezone.utc).strftime("%Y-%m-%d"),
     )
     try:
         raw = call_llm(prompt, api_key)

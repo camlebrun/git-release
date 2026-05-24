@@ -11,14 +11,16 @@ const MANIFEST_URL = `${R2_BASE}/manifest.json`;
 let allRecords = [];
 let allAdvisories = [];
 let activeSev = 'all';
-let activeRepo = 'all';   // group filter
-let activeSubRepo = 'all'; // individual repo filter within group
+let activeRepo = 'all';
+let activeSubRepo = 'all';
+let activeTag = 'all';
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   setupTabs();
   setupSearch();
   setupSevFilters();
+  setupTagFilter();
   setupDrawer();
   loadDigest();
 });
@@ -126,6 +128,23 @@ function setupSevFilters() {
   });
 }
 
+// ── Tag filter ─────────────────────────────────────────────────────────────
+function setupTagFilter() {
+  document.getElementById('tag-filter').addEventListener('change', e => {
+    activeTag = e.target.value;
+    applyFilters();
+  });
+}
+
+function buildTagFilter(records) {
+  const tags = new Set();
+  records.forEach(r => (r.analysis?.tags ?? []).forEach(t => tags.add(t)));
+  const select = document.getElementById('tag-filter');
+  const sorted = [...tags].sort();
+  select.innerHTML = `<option value="all">All tags</option>` +
+    sorted.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+}
+
 // ── Group + sub-repo filters ───────────────────────────────────────────────
 const GROUP_LABELS = {
   'dbt-core':     'dbt Core',
@@ -210,30 +229,17 @@ function applyFilters() {
     const sevOk = activeSev === 'all' || c.dataset.severity === activeSev;
     const groupOk = activeRepo === 'all' || c.dataset.group === activeRepo;
     const subOk = activeSubRepo === 'all' || c.dataset.repo === activeSubRepo;
+    const tagOk = activeTag === 'all' || c.dataset.tags.split(' ').includes(activeTag);
     const searchOk = !q ||
       c.dataset.repo.toLowerCase().includes(q) ||
       c.dataset.tags.toLowerCase().includes(q) ||
       c.textContent.toLowerCase().includes(q);
-    const show = sevOk && groupOk && subOk && searchOk;
+    const show = sevOk && groupOk && subOk && tagOk && searchOk;
     c.classList.toggle('hidden', !show);
     if (show) visibleCards++;
   });
 
-  const advisories = document.querySelectorAll('.advisory-card');
-  let visibleAdvisories = 0;
-  advisories.forEach(a => {
-    const sevOk = activeSev === 'all' || a.dataset.severity === activeSev;
-    const groupOk = activeRepo === 'all' || a.dataset.group === activeRepo;
-    const subOk = activeSubRepo === 'all' || a.dataset.repo === activeSubRepo;
-    const repoOk = groupOk && subOk;
-    const searchOk = !q || a.textContent.toLowerCase().includes(q);
-    const show = sevOk && repoOk && searchOk;
-    a.classList.toggle('hidden', !show);
-    if (show) visibleAdvisories++;
-  });
-
   document.getElementById('empty-digest').classList.toggle('hidden', visibleCards > 0 || cards.length === 0);
-  document.getElementById('empty-advisories').classList.toggle('hidden', visibleAdvisories > 0 || advisories.length === 0);
 }
 
 // ── Data fetch ─────────────────────────────────────────────────────────────
@@ -251,8 +257,8 @@ async function loadDigest() {
     loading.classList.add('hidden');
     const nonPkg = allRecords.filter(r => r.group !== 'dbt-packages' && r.group !== 'dbt-fusion' && r.repo !== 'dbt-labs/dbt-fusion');
     renderGrid(nonPkg);
-    renderAdvisories(allAdvisories);
     updateCounts(nonPkg, allAdvisories);
+    buildTagFilter(nonPkg);
     buildRepoFilters(nonPkg);
   } catch (err) {
     loading.className = 'empty-state';
@@ -311,51 +317,6 @@ function renderGrid(records) {
 }
 
 // ── Security Advisories ────────────────────────────────────────────────────
-const ACTION_LABEL = {
-  'upgrade-immediately': '🚨 Upgrade immediately',
-  'upgrade-this-sprint': '⚠️ Upgrade this sprint',
-  'monitor': '👀 Monitor',
-  'no-action': '✅ No action needed',
-};
-
-function renderAdvisories(advisories) {
-  const container = document.getElementById('advisory-list');
-  if (!advisories.length) {
-    document.getElementById('empty-advisories').classList.remove('hidden');
-    return;
-  }
-
-  container.innerHTML = advisories.map(a => {
-    const sev  = a.severity ?? 'unknown';
-    const an   = a.analysis ?? {};
-    const ghsa = a.ghsa_id ?? '';
-    const cve  = a.cve_id  ?? '';
-    const link = a.html_url ?? a.url ?? '#';
-    const desc = stripMd(an.impact || a.description || '').slice(0, 280);
-
-    return `<a class="advisory-card"
-   href="${esc(link)}"
-   target="_blank"
-   rel="noopener"
-   data-repo="${esc(a.repo ?? '')}"
-   data-group="${esc(a.group ?? '')}"
-   data-severity="${esc(sev)}">
-  <div class="advisory-header">
-    <div class="advisory-ids">
-      ${ghsa ? `<span class="advisory-id">${esc(ghsa)}</span>` : ''}
-      ${cve  ? `<span class="advisory-cve">${esc(cve)}</span>`  : ''}
-    </div>
-    <span class="sev sev-${sev}">${sev}</span>
-  </div>
-  <span class="card-repo">${esc((a.repo ?? '').split('/')[1])}</span>
-  <h3 class="advisory-title">${esc(a.summary)}</h3>
-  <p class="advisory-desc">${esc(desc)}${desc.length === 280 ? '…' : ''}</p>
-  ${an.affected_versions ? `<p class="card-date">Affected: <strong>${esc(an.affected_versions)}</strong>${an.fix_version ? ` → Fixed: <strong>${esc(an.fix_version)}</strong>` : ''}</p>` : ''}
-  ${an.action ? `<p class="card-date">${esc(ACTION_LABEL[an.action] ?? an.action)}</p>` : ''}
-  <p class="card-date">${formatDate(a.published_at)}</p>
-</a>`.trim();
-  }).join('');
-}
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function stripMd(str) {

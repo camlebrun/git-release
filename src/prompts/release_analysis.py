@@ -49,8 +49,12 @@ Base on: CVEs/GHSAs present, breaking changes, data-loss risk, auth changes. \
 'high' = security fix or data integrity risk. 'critical' = RCE, auth bypass, data loss.>",
 
   "tags": [
-    "<One or more of: breaking | security | performance | bug-fix | feature | deprecation | \
-schema-change | config-change | dependency-update | refactor>"
+    "<ONLY use values from this exact list — no others allowed: \
+breaking | security | performance | bug-fix | feature | new-capability | \
+deprecation | schema-change | config-change | dependency-update | refactor. \
+Use 'new-capability' for significant new features that change what the tool can do (new API, new command, new integration). \
+Use 'feature' for minor additions or improvements to existing functionality. \
+Max 4 tags. No free-form values.>"
   ]
 }}
 

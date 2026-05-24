@@ -41,8 +41,11 @@ Only user-facing changes. Max 6 items. Empty array if worth_tracking is false.>"
   "severity": "<none | low | medium | high | critical — based on CVEs, breaking changes, data-loss risk.>",
 
   "tags": [
-    "<One or more of: breaking | security | performance | bug-fix | feature | \
-deprecation | schema-change | config-change | adapter | refactor>"
+    "<ONLY use values from this exact list — no others allowed: \
+breaking | security | performance | bug-fix | feature | new-capability | \
+deprecation | schema-change | config-change | dependency-update | refactor. \
+Use 'new-capability' for significant new features (new adapter, new command, major UX change). \
+Use 'feature' for minor additions. Max 4 tags. No free-form values.>"
   ]
 }}
 

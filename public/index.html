@@ -22,9 +22,9 @@
         <button class="tab active" data-tab="digest">
           Release Notes <span class="badge" id="digest-count"></span>
         </button>
-        <button class="tab" data-tab="security">
+        <a class="tab" href="/security/">
           Security <span class="badge badge-cve" id="advisory-count"></span>
-        </button>
+        </a>
         <a class="tab" href="/dbt-packages/">dbt Packages</a>
         <a class="tab" href="/dbt-fusion/">dbt Fusion</a>
       </div>
@@ -43,6 +43,15 @@
 
       <div class="divider"></div>
 
+      <!-- Tag dropdown -->
+      <div class="inline-filters">
+        <select id="tag-filter" class="tag-select">
+          <option value="all">All tags</option>
+        </select>
+      </div>
+
+      <div class="divider"></div>
+
       <!-- Group chips -->
       <div class="inline-filters" id="repo-filters-inline"></div>
       <!-- Sub-repo chips (shown when a group is selected) -->
@@ -57,10 +66,6 @@
       <p id="loading" class="loading">Loading releases…</p>
     </section>
 
-    <section id="tab-security" class="tab-panel hidden">
-      <div id="advisory-list" class="advisory-grid"></div>
-      <p id="empty-advisories" class="empty-state hidden">No security advisories found.</p>
-    </section>
   </main>
 
   <!-- Release detail drawer -->

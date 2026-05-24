@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Security · StackRadar</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="stylesheet" href="/style.css" />
+  <link rel="stylesheet" href="/security/style.css" />
+</head>
+<body>
+  <header>
+    <div class="header-row-1">
+      <a href="/" class="brand-link"><h1>📡 StackRadar</h1></a>
+      <input type="search" id="search" placeholder="Search advisories…" autocomplete="off" />
+    </div>
+
+    <div class="header-row-2">
+      <!-- Tabs -->
+      <div class="tabs">
+        <a class="tab" href="/">Release Notes <span class="badge" id="release-count"></span></a>
+        <button class="tab active">Security <span class="badge badge-cve" id="total-count"></span></button>
+        <a class="tab" href="/dbt-packages/">dbt Packages</a>
+        <a class="tab" href="/dbt-fusion/">dbt Fusion</a>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Action = primary filter -->
+      <div class="inline-filters">
+        <button class="chip active" data-action="all">All</button>
+        <button class="chip" data-action="patch-now">Patch now</button>
+        <button class="chip" data-action="patch-soon">Patch soon</button>
+        <button class="chip" data-action="monitor">Monitor</button>
+        <button class="chip" data-action="safe">Safe</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Age toggle -->
+      <div class="inline-filters">
+        <button class="chip active" data-age="all">All dates</button>
+        <button class="chip"        data-age="recent">Recent</button>
+        <button class="chip"        data-age="old">Too old</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Repo chips (populated by JS) -->
+      <div class="inline-filters" id="repo-filters"></div>
+    </div>
+  </header>
+
+  <main>
+    <div class="pkg-rules-banner">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>
+        Advisories older than <strong>12 months</strong> are automatically downgraded to <strong>Safe</strong> unless critical.
+      </span>
+    </div>
+    <div id="grid" class="bento-grid"></div>
+    <p id="empty-state" class="empty-state hidden">No advisories match your filter.</p>
+    <p id="loading" class="loading">Loading advisories…</p>
+  </main>
+
+  <!-- Detail drawer -->
+  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>
+  <aside id="drawer" class="drawer hidden" role="dialog" aria-modal="true">
+    <div class="drawer-header">
+      <div class="drawer-meta">
+        <span id="drawer-repo" class="card-repo"></span>
+        <span id="drawer-sev" class="sev"></span>
+      </div>
+      <button id="drawer-close" class="drawer-close" aria-label="Close">✕</button>
+    </div>
+    <div class="drawer-body">
+      <div id="drawer-ids" class="advisory-ids" style="margin-bottom:8px"></div>
+      <h2 id="drawer-title" class="drawer-title"></h2>
+      <p id="drawer-date" class="card-date"></p>
+
+      <div id="drawer-action-wrap" class="drawer-section hidden">
+        <div id="drawer-action" class="advisory-action-banner"></div>
+      </div>
+      <div id="drawer-impact-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Impact</h3>
+        <p id="drawer-impact" class="drawer-summary"></p>
+      </div>
+      <div id="drawer-versions-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Versions</h3>
+        <p id="drawer-versions" class="card-date"></p>
+      </div>
+      <div id="drawer-steps-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Action steps</h3>
+        <ul id="drawer-steps" class="card-changes drawer-changes"></ul>
+      </div>
+      <div id="drawer-desc-wrap" class="drawer-section hidden">
+        <h3 class="drawer-section-title">Description</h3>
+        <p id="drawer-desc" class="drawer-summary"></p>
+      </div>
+      <a id="drawer-link" class="drawer-link" target="_blank" rel="noopener">View on GitHub →</a>
+    </div>
+  </aside>
+
+  <script type="module" src="/security/app.js"></script>
+</body>
+</html>

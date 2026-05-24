@@ -1,0 +1,43 @@
+
+/* ── Action tag variants — inherit .tag base, override color only ── */
+.tag-action {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tag-action.action-critical { color: var(--sev-crit-fg); background: var(--sev-crit-bg); border-color: rgba(220,38,38,.2); }
+.tag-action.action-high     { color: var(--sev-high-fg); background: var(--sev-high-bg); border-color: rgba(234,88,12,.2); }
+.tag-action.action-medium   { color: var(--sev-med-fg);  background: var(--sev-med-bg);  border-color: rgba(217,119,6,.2); }
+.tag-action.action-low      { color: #16a34a;            background: #f0fdf4;            border-color: rgba(22,163,74,.2); }
+
+/* ── Action banner in drawer ── */
+.advisory-action-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.action-critical {
+  background: var(--sev-crit-bg);
+  color: var(--sev-crit-fg);
+  border: 1px solid rgba(220, 38, 38, 0.2);
+}
+
+.action-high {
+  background: var(--sev-high-bg);
+  color: var(--sev-high-fg);
+  border: 1px solid rgba(234, 88, 12, 0.2);
+}
+
+.action-medium {
+  background: var(--sev-med-bg);
+  color: var(--sev-med-fg);
+  border: 1px solid rgba(217, 119, 6, 0.2);
+}
+
+.action-low {
+  background: #f0fdf4;
+  color: #16a34a;
+  border: 1px solid rgba(22, 163, 74, 0.2);
+}

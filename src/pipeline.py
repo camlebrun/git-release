@@ -42,6 +42,104 @@ logger = logging.getLogger(__name__)
 
 _REPOS_PATH = Path(__file__).parent.parent / "repos.json"
 
+# ── Post-processing: severity floor + tag normalisation ────────────────────
+
+_SEV_ORDER = ("none", "low", "medium", "high", "critical")
+
+# Map free-form LLM tags → canonical set
+_TAG_REMAP: dict[str, str] = {
+    "adapter": "dependency-update",
+    "adapter-support": "dependency-update",
+    "dbt-compatibility": "dependency-update",
+    "sql-fix": "bug-fix",
+    "contract-validation": "bug-fix",
+    "local-verification": "bug-fix",
+    "reliability": "bug-fix",
+    "ux": "feature",
+    "ux-improvement": "feature",
+    "ui": "feature",
+    "ui-change": "feature",
+    "experimental": "feature",
+    "hitl": "feature",
+    "plugin-system": "feature",
+    "semantic-layer": "feature",
+    "data-quality": "feature",
+    "new-test": "feature",
+    "docs-only": "feature",
+    "macro-change": "config-change",
+    "telemetry": "refactor",
+    "rewrite": "refactor",
+    "rust": "performance",
+    "parsing": "performance",
+}
+
+_VALID_TAGS = frozenset(
+    {
+        "breaking",
+        "security",
+        "performance",
+        "bug-fix",
+        "feature",
+        "new-capability",
+        "deprecation",
+        "schema-change",
+        "config-change",
+        "dependency-update",
+        "refactor",
+    }
+)
+
+
+def _normalize_tags(tags: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for t in tags:
+        mapped = _TAG_REMAP.get(t, t)
+        if mapped in _VALID_TAGS and mapped not in seen:
+            seen.add(mapped)
+            result.append(mapped)
+    return result
+
+
+def _semver_severity_floor(tag: str) -> str | None:
+    """Major (X.0.0) → critical, minor (X.Y.0) → high, patch → medium."""
+    sv = parse_semver(tag)
+    if not sv.valid:
+        return None
+    if sv.major > 0 and sv.minor == 0 and sv.patch == 0:
+        return "critical"
+    if sv.patch == 0:
+        return "high"
+    return "medium"
+
+
+def _apply_floor(analysis: dict[str, Any], floor: str) -> dict[str, Any]:
+    current = analysis.get("severity", "none")
+    idx = {s: i for i, s in enumerate(_SEV_ORDER)}
+    if idx.get(floor, 0) > idx.get(current, 0):
+        return {**analysis, "severity": floor}
+    return analysis
+
+
+def _post_process_analysis(
+    analysis: dict[str, Any],
+    release: dict[str, Any],
+    source: str,
+    is_dbt_package: bool,
+) -> dict[str, Any]:
+    """Normalise tags to the canonical whitelist and apply semver-based severity floor."""
+    if not is_dbt_package:
+        raw = analysis.get("tags", [])
+        analysis = {**analysis, "tags": _normalize_tags(raw if isinstance(raw, list) else [])}
+
+    # Severity floor only for standard GitHub releases (not preview/changelog/dbt-package)
+    if source == "github" and not is_dbt_package:
+        floor = _semver_severity_floor(str(release.get("tag_name", "")))
+        if floor:
+            analysis = _apply_floor(analysis, floor)
+
+    return analysis
+
 
 def _call_email_function(url: str, payload: dict[str, Any]) -> None:
     """POST to the email Cloud Function with OIDC token for service-to-service auth."""
@@ -207,6 +305,8 @@ def _process_repos(
                     logger.warning("[%s] skipping %s — LLM analysis failed: %s", repo, tag, error)
                     continue
 
+                analysis = _post_process_analysis(analysis, release, source, is_dbt_package)
+
                 if source == "changelog" and not is_historical:
                     if not analysis.get("worth_tracking", True):
                         logger.info("[%s] skipping %s — not worth tracking", repo, tag)
@@ -268,8 +368,11 @@ def _process_advisories(
             ghsa = adv.get("ghsa_id", "")
             updated_at = adv.get("updated_at") or ""
             if ghsa in existing and cursor and updated_at <= cursor:
-                adv["analysis"] = existing[ghsa].get("analysis")
-                continue
+                existing_analysis = existing[ghsa].get("analysis")
+                if existing_analysis is not None:
+                    adv["analysis"] = existing_analysis
+                    continue
+                # Fall through to re-analyse if analysis was never stored
             adv["analysis"] = analyse_advisory(adv, llm_key)
             updated = True
             logger.info("[%s] advisory analysed: %s", repo, ghsa)
