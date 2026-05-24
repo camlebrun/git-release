@@ -218,8 +218,11 @@ function updateCounts(records, advisories, pkgRecs, fusionRecs) {
   }
   const fusionBadge = document.getElementById('fusion-count');
   if (fusionBadge) {
-    fusionBadge.textContent = fusionRecs.length ? 1 : '';
-    fusionBadge.title = `1 latest release · ${fusionRecs.length} total in history`;
+    const fusionLatest = fusionRecs.length
+      ? [fusionRecs.reduce((best, r) => new Date(r.published_at) > new Date(best.published_at) ? r : best)]
+      : [];
+    fusionBadge.textContent = fusionLatest.length || '';
+    fusionBadge.title = `${fusionLatest.length} latest release · ${fusionRecs.length} total in history`;
   }
 }
 

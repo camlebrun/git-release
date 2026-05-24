@@ -72,9 +72,12 @@ async function loadAdvisories() {
     }
     const fusionBadge = document.getElementById('fusion-count');
     if (fusionBadge) {
-      const fusionTotal = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion').length;
-      fusionBadge.textContent = fusionTotal ? 1 : '';
-      fusionBadge.title = `1 latest release · ${fusionTotal} total in history`;
+      const fusionRecs  = releases.filter(r => r.group === 'dbt-fusion' || r.repo === 'dbt-labs/dbt-fusion');
+      const fusionLatest = fusionRecs.length
+        ? [fusionRecs.reduce((best, r) => new Date(r.published_at) > new Date(best.published_at) ? r : best)]
+        : [];
+      fusionBadge.textContent = fusionLatest.length || '';
+      fusionBadge.title = `${fusionLatest.length} latest release · ${fusionRecs.length} total in history`;
     }
     buildRepoFilters(allAdvisories);
     renderAll();
