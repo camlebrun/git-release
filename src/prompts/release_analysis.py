@@ -42,11 +42,15 @@ CVE-YYYY-NNNNN (CVE IDs) and GHSA-XXXX-XXXX-XXXX (GitHub Security Advisories). \
 DO NOT infer, guess, or fabricate IDs. If none are written verbatim, return [].>"
   ],
 
-  "severity": "<Security/stability impact: none | low | medium | high | critical. \
-Base on: CVEs/GHSAs present, breaking changes, data-loss risk, auth changes. \
-'critical' = RCE, SQL injection, auth bypass, data loss — upgrade immediately. \
-'none' = pure feature/perf. 'low' = minor behaviour change. 'medium' = breaking change requiring migration. \
-'high' = security fix or data integrity risk. 'critical' = RCE, auth bypass, data loss.>",
+  "severity": "<Upgrade urgency for the consuming team: none | low | medium | high | critical. \
+'none' = no action needed — pure feature additions, performance improvements, patch/bug fixes with no behaviour change. \
+'low' = minor behaviour change or optional deprecation warning; migration is trivial (1 config key, 1 flag). \
+'medium' = breaking change that requires migration before upgrading — consumers must act. \
+'high' = security fix (low/medium CVE), data integrity risk, or many breaking changes requiring significant refactor. \
+'critical' = upgrade is urgent and complex: critical CVE / RCE / auth bypass / data loss, OR a major version release \
+(X.0.0 or first stable release of a new major line e.g. v3.x after v2.x) with breaking changes requiring \
+substantial migration effort across the codebase (e.g. Airflow 2→3, dbt-core 1→2). \
+When in doubt between two levels, choose the higher one.>",
 
   "tags": [
     "<ONLY use values from this exact list — no others allowed: \

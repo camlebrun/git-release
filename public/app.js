@@ -11,9 +11,8 @@ const MANIFEST_URL = `${R2_BASE}/manifest.json`;
 let allRecords = [];
 let allAdvisories = [];
 let activeSev = 'all';
-let activeRepo = 'all';
-let activeSubRepo = 'all';
 let activeTag = 'all';
+let activeRepo = 'all';
 
 // ── Boot ───────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -141,7 +140,7 @@ function buildTagFilter(records) {
   records.forEach(r => (r.analysis?.tags ?? []).forEach(t => tags.add(t)));
   const select = document.getElementById('tag-filter');
   const sorted = [...tags].sort();
-  select.innerHTML = `<option value="all">All tags</option>` +
+  select.innerHTML = `<option value="all">All types</option>` +
     sorted.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
 }
 
@@ -152,30 +151,10 @@ const GROUP_LABELS = {
   'orchestration':'Orchestration',
 };
 
-// repo slug → display name
-const REPO_LABELS = {
-  'dbt-bigquery': 'BigQuery',
-  'dbt-trino':    'Trino',
-  'dbt-duckdb':   'DuckDB',
-  'dbt-core':     'Core',
-  'dagster':      'Dagster',
-  'kestra':       'Kestra',
-};
-
-let _reposByGroup = {};
 
 function buildRepoFilters(records) {
-  // Build group → repos map
-  _reposByGroup = {};
-  records.forEach(r => {
-    const g = r.group ?? 'other';
-    if (!_reposByGroup[g]) _reposByGroup[g] = new Set();
-    _reposByGroup[g].add(r.repo);
-  });
-
-  const groups = Object.keys(_reposByGroup).sort();
+  const groups = [...new Set(records.map(r => r.group ?? 'other'))].sort();
   const container = document.getElementById('repo-filters-inline');
-  const subContainer = document.getElementById('repo-filters-sub');
 
   const groupButtons = groups.map(g =>
     `<button class="chip" data-group="${esc(g)}">${esc(GROUP_LABELS[g] ?? g)}</button>`
@@ -187,33 +166,6 @@ function buildRepoFilters(records) {
       container.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       activeRepo = btn.dataset.group;
-      activeSubRepo = 'all';
-      buildSubFilters(activeRepo, subContainer);
-      applyFilters();
-    });
-  });
-}
-
-function buildSubFilters(group, subContainer) {
-  const repos = _reposByGroup[group];
-  if (!repos || repos.size <= 1 || group === 'all') {
-    subContainer.classList.add('hidden');
-    subContainer.innerHTML = '';
-    return;
-  }
-  const repoButtons = [...repos].sort().map(r => {
-    const slug = r.split('/')[1];
-    const label = REPO_LABELS[slug] ?? slug;
-    return `<button class="chip" data-subrepo="${esc(r)}">${esc(label)}</button>`;
-  }).join('');
-  subContainer.innerHTML = `<button class="chip active" data-subrepo="all">All</button>${repoButtons}`;
-  subContainer.classList.remove('hidden');
-
-  subContainer.querySelectorAll('.chip').forEach(btn => {
-    btn.addEventListener('click', () => {
-      subContainer.querySelectorAll('.chip').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      activeSubRepo = btn.dataset.subrepo;
       applyFilters();
     });
   });
@@ -227,14 +179,13 @@ function applyFilters() {
   let visibleCards = 0;
   cards.forEach(c => {
     const sevOk = activeSev === 'all' || c.dataset.severity === activeSev;
+    const tagOk = activeTag === 'all' || (c.dataset.tags || '').split(' ').includes(activeTag);
     const groupOk = activeRepo === 'all' || c.dataset.group === activeRepo;
-    const subOk = activeSubRepo === 'all' || c.dataset.repo === activeSubRepo;
-    const tagOk = activeTag === 'all' || c.dataset.tags.split(' ').includes(activeTag);
     const searchOk = !q ||
       c.dataset.repo.toLowerCase().includes(q) ||
       c.dataset.tags.toLowerCase().includes(q) ||
       c.textContent.toLowerCase().includes(q);
-    const show = sevOk && groupOk && subOk && tagOk && searchOk;
+    const show = sevOk && tagOk && groupOk && searchOk;
     c.classList.toggle('hidden', !show);
     if (show) visibleCards++;
   });
@@ -282,7 +233,7 @@ function renderGrid(records) {
   grid.innerHTML = records.map((r, idx) => {
     const a        = r.analysis ?? {};
     const severity = a.severity ?? 'none';
-    const tags     = a.tags ?? [];
+    const tags     = (a.tags ?? []).slice(0, 3);
     const changes  = (a.key_changes ?? []).slice(0, 3);
 
     const changesList = changes.map(c => `<li>${esc(c)}</li>`).join('');

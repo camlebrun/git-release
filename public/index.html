@@ -37,8 +37,6 @@
         <button class="chip" data-sev="critical">critical</button>
         <button class="chip" data-sev="high">high</button>
         <button class="chip" data-sev="medium">medium</button>
-        <button class="chip" data-sev="low">low</button>
-        <button class="chip" data-sev="none">none</button>
       </div>
 
       <div class="divider"></div>
@@ -46,7 +44,7 @@
       <!-- Tag dropdown -->
       <div class="inline-filters">
         <select id="tag-filter" class="tag-select">
-          <option value="all">All tags</option>
+          <option value="all">All types</option>
         </select>
       </div>
 
@@ -54,13 +52,21 @@
 
       <!-- Group chips -->
       <div class="inline-filters" id="repo-filters-inline"></div>
-      <!-- Sub-repo chips (shown when a group is selected) -->
-      <div class="inline-filters hidden" id="repo-filters-sub"></div>
     </div>
   </header>
 
   <main>
     <section id="tab-digest" class="tab-panel active">
+      <div class="pkg-rules-banner">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="flex-shrink:0;margin-top:1px">
+          <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M8 7v5M8 5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span>
+          Releases with <strong>breaking changes</strong> are automatically upgraded to at least <strong>Medium</strong> severity.
+          Major version releases (X.0.0) with breaking changes are set to <strong>Critical</strong>.
+        </span>
+      </div>
       <div id="grid" class="bento-grid"></div>
       <p id="empty-digest" class="empty-state hidden">No releases match your filter.</p>
       <p id="loading" class="loading">Loading releases…</p>

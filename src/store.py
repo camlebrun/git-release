@@ -73,6 +73,14 @@ def put_release(s3: Any, bucket: str, record: dict[str, Any]) -> None:
     _put_json(s3, bucket, _release_key(owner, repo, tag), record)
 
 
+def overwrite_release(s3: Any, bucket: str, record: dict[str, Any]) -> None:
+    """Force-write a release record regardless of whether it already exists."""
+    owner_repo = str(record["repo"])
+    owner, repo = owner_repo.split("/", 1)
+    tag = str(record["tag"])
+    _put_json(s3, bucket, _release_key(owner, repo, tag), record)
+
+
 def list_release_keys(s3: Any, bucket: str) -> list[str]:
     keys: list[str] = []
     paginator = s3.get_paginator("list_objects_v2")
