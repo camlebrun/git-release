@@ -21,21 +21,77 @@ StackRadar fetches GitHub release notes across your tracked repos, analyses them
 ## Architecture
 
 ```
-Cloud Scheduler (06:00 UTC)
-    │  POST /trigger
-    ▼
-GCP Cloud Run Job (Python 3.12)
-    ├── GitHub API     →  fetch new releases (incremental; 2-major backfill on first run)
-    ├── Mistral LLM    →  summary, key changes, CVE IDs, severity, tags
-    └── Cloudflare R2  →  store one JSON per release
-         releases/{owner}/{repo}/{tag}.json
-         meta/cursor/{owner}/{repo}.json
+ Cloud Scheduler (06:00 UTC daily)
+          │
+          ▼
+ ┌─────────────────────────────────────────────────────────────────┐
+ │  Cloud Run Job — git-release  (Python 3.12 · europe-west9)     │
+ │                                                                  │
+ │  repos.json defines what to track:                              │
+ │  ├── GitHub releases      ──────────────►  GitHub REST API      │
+ │  │   (incremental, cursor-based;                                │
+ │  │    2-major backfill on first run)                            │
+ │  ├── dbt-fusion changelog ──────────────►  GitHub raw content   │
+ │  ├── GCP Docs             ──────────────►  cloud.google.com     │
+ │  │   (BigQuery, Lakehouse release notes)                        │
+ │  └── security advisories  ──────────────►  GitHub Security API  │
+ │                                                                  │
+ │  For each new release / advisory:                               │
+ │  ├── LLM analysis  ─────────────────────►  Mistral API          │
+ │  │   mistral-small-latest                                        │
+ │  │   6 specialised prompts:                                      │
+ │  │     standard · bigquery · lakehouse                          │
+ │  │     dbt-package · dbt-fusion · dbt-fusion-historical         │
+ │  ├── CVE enrichment ────────────────────►  NIST NVD API         │
+ │  │   CVSS scores appended to cve_references[]                   │
+ │  └── Cloudflare R2  (boto3, S3-compatible)                      │
+ │       releases/{owner}/{repo}/{tag}.json                        │
+ │       meta/cursor/{owner}/{repo}.json                           │
+ │       meta/advisory-cursor/{owner}/{repo}.json                  │
+ │       meta/run_status.json                                       │
+ │       advisories/{owner}/{repo}/advisories.json                 │
+ │       digest.json  (pre-built sorted digest, served cold)       │
+ │                                                                  │
+ │  Post-run (new releases only)  ─────────►  Cloud Function       │
+ │            OIDC HTTP POST                  email-digest          │
+ └─────────────────────────────────────────────────────────────────┘
+                                                      │
+                                                      ▼
+                                         ┌────────────────────────┐
+                                         │  Cloud Function        │
+                                         │  email-digest          │
+                                         │  Python 3.12           │
+                                         │  europe-west9          │
+                                         │                        │
+                                         │  GCP Secret Manager    │
+                                         │  ├── GMAIL_ADDRESS     │
+                                         │  ├── GMAIL_APP_PASSWD  │
+                                         │  └── NOTIFY_EMAIL      │
+                                         │                        │
+                                         │  Gmail SMTP (port 465) │
+                                         │  → digest or fail HTML │
+                                         └────────────────────────┘
 
-GCP Cloud Function (Python 3.12)
-    └── /email-digest  →  send daily HTML digest email
+ Cloudflare Pages (static, built with Vite)
+ ├── /                →  main digest  (bento cards, CVE table, filters)
+ ├── /bigquery        →  BigQuery-specific release view
+ ├── /lakehouse       →  Lakehouse-specific release view
+ ├── /dbt-packages    →  dbt packages release view  (sorted by date)
+ ├── /dbt-fusion      →  dbt-fusion release view
+ └── /security        →  security advisories view
+     all tabs read digest.json directly from Cloudflare R2
 
-Cloudflare Pages (static)
-    └── fetch /digest  →  bento card grid + CVE table
+ Secrets & config
+ └── GCP Secret Manager  →  MISTRAL_API_KEY · GITHUB_TOKEN · TRIGGER_SECRET
+                             R2_ACCESS_KEY_ID · R2_SECRET_ACCESS_KEY · R2_ACCOUNT_ID
+                             EMAIL_FUNCTION_URL
+     (falls back to .env.local for local dev via src/secrets.py)
+
+ CI / CD
+ ├── GitHub Actions ci.yml    →  ruff · black · pytest  [on every PR]
+ ├── GitHub Actions deploy.yml →  deploy Cloud Function  [on push to main]
+ └── Cloud Build               →  Docker build → Artifact Registry
+                                   → deploy Cloud Run Job
 ```
 
 ---
